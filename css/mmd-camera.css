@@ -368,6 +368,74 @@ input[type=checkbox] {
   height:12px;
   border-left:1px solid var(--line)
 }
+.ar-entry {
+  min-width:44px;
+  min-height:44px;
+  border-radius:12px;
+  background:#e9ede3;
+  color:var(--green);
+  font-size:13px;
+  font-weight:650
+}
+.ar-support { padding:10px; background:#f5f7f0; border-radius:8px }
+body.ar-active { background:transparent }
+body.ar-active > .topbar,body.ar-active > .page,body.ar-active > .mobile-dock { display:none }
+.ar-overlay {
+  position:fixed;
+  inset:0;
+  color:#f6f8f0;
+  background:transparent;
+  pointer-events:none;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:space-between;
+  padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
+  z-index:20
+}
+.ar-overlay button {
+  min-height:48px;
+  border:1px solid #ffffff26;
+  border-radius:12px;
+  background:#253027e6;
+  color:inherit;
+  padding:10px 16px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  touch-action:manipulation
+}
+.ar-top { width:100%; display:flex; justify-content:space-between; align-items:center; gap:8px }
+.ar-top button { pointer-events:auto }
+.ar-badge { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:12px; background:#253027d9; font-size:12px }
+.ar-guidance { align-self:center; margin-top:16px; text-align:center; padding:12px 16px; border-radius:14px; background:#253027d9 }
+.ar-guidance p { font-size:14px; line-height:1.7; margin:0 }
+.ar-guidance span { display:block; margin-top:5px; font-size:11px; color:#c1cbb8 }
+.ar-tools {
+  width:min(100%,420px);
+  margin-top:auto;
+  padding:14px;
+  border:1px solid #ffffff26;
+  border-radius:20px;
+  background:#253027e6;
+  backdrop-filter:blur(10px);
+  pointer-events:auto
+}
+.ar-placement,.ar-motion-tools { display:flex; gap:8px }
+.ar-placement button,.ar-motion-tools button { flex:1; min-width:0 }
+.ar-overlay .primary { background:var(--accent); color:#354229; border-color:var(--accent) }
+.ar-size-label { margin:16px 0 0; display:flex; justify-content:space-between; font-size:13px; color:#d5dfca }
+.ar-tools .range { display:block; height:44px; margin:0; accent-color:var(--accent) }
+.ar-motion-tools #ar-play { max-width:64px }
+@media(max-height:500px) {
+  .ar-overlay { align-items:flex-end }
+  .ar-guidance { align-self:flex-start; max-width:calc(100% - 340px); margin-top:14px }
+  .ar-tools { width:310px; padding:10px; position:absolute; right:max(12px,env(safe-area-inset-right)); bottom:max(12px,env(safe-area-inset-bottom)) }
+  .ar-size-label { margin-top:8px }
+  .ar-tools button { padding:8px; font-size:12px; min-height:44px }
+}
 .stage-shell {
   border-radius:12px;
   background:#1b2220;

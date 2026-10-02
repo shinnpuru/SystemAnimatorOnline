@@ -3,6 +3,7 @@ import { MMDLoader } from './vendor/loaders/MMDLoader.js';
 import { MMDAnimationHelper } from './vendor/animation/MMDAnimationHelper.js';
 import { Parser } from './vendor/libs/mmdparser.module.js';
 import { collectAssets, createAssetURLs, droppedFiles, isModel, isMotion, coverRect } from './assets.js';
+import { SpatialAR } from './spatial-ar.js';
 
 const $ = id => document.getElementById(id);
 const parser = new Parser();
@@ -21,7 +22,8 @@ let renderer, mesh, helper, modelResources, motion, action;
 let duration = 0, position = 0, playing = false, busy = false;
 let stream = null, cameraRequest = 0, cameraPending = false, photoURL = null;
 let lastFrame = performance.now(), lastUI = 0, dragDepth = 0;
-let modelHeight = 20, modelCenter = new THREE.Vector3(0, 10, 0);
+let modelHeight = 20, modelMinY = 0, modelCenter = new THREE.Vector3(0, 10, 0);
+let spatialAR, arResumeCamera = null, arCameraRestore = null, leavingPage = false;
 let orbit = { theta: 0, phi: Math.PI / 2, distance: 50, x: 0, y: 0 };
 const backgroundColor = '#232b27';
 const WHITE_PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jL1sAAAAASUVORK5CYII=';
@@ -32,17 +34,23 @@ function message(text, error = false) {
 }
 
 function refreshControls() {
-  for (const id of ['import-model', 'import-folder', 'import-motion', 'sample', 'remove-model', 'remove-motion']) $(id).disabled = busy || !renderer;
-  for (const id of ['model-scale', 'model-x', 'model-y', 'reset-view', 'turn-left', 'turn-right']) $(id).disabled = !mesh || busy;
+  const arLocked = !!spatialAR?.locked;
+  for (const id of ['import-model', 'import-folder', 'import-motion', 'sample', 'remove-model', 'remove-motion']) $(id).disabled = busy || !renderer || arLocked;
+  for (const id of ['model-scale', 'model-x', 'model-y', 'reset-view', 'turn-left', 'turn-right']) $(id).disabled = !mesh || busy || arLocked;
   for (const id of ['play', 'restart', 'timeline', 'speed']) $(id).disabled = !action || busy;
-  $('capture').disabled = (!mesh && !stream) || !renderer || busy || cameraPending;
+  $('capture').disabled = (!mesh && !stream) || !renderer || busy || cameraPending || arLocked;
+  for (const id of ['camera-toggle', 'mobile-camera']) $(id).disabled = cameraPending || !renderer || arLocked;
+  $('ar-toggle').disabled = !renderer || busy || cameraPending || arLocked || spatialAR?.support === 'checking';
+  $('ar-play').disabled = !action || busy;
   $('empty-stage').hidden = !!mesh || !!stream;
   $('play').setAttribute('aria-label', playing ? '暂停动作' : '播放动作');
   $('play-icon').setAttribute('href', playing ? '#i-pause' : '#i-play');
+  $('ar-play').setAttribute('aria-label', playing ? '暂停动作' : '播放动作');
+  $('ar-play-icon').setAttribute('href', playing ? '#i-pause' : '#i-play');
 }
 
 async function runImport(task) {
-  if (busy || !renderer) return;
+  if (busy || !renderer || spatialAR?.locked) return;
   busy = true;
   refreshControls();
   message('正在读取本地文件…');
@@ -166,6 +174,7 @@ async function loadModel(assets, name) {
     mesh.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(mesh);
     modelHeight = Math.max(bounds.max.y - bounds.min.y, 1);
+    modelMinY = bounds.min.y;
     modelCenter = bounds.getCenter(new THREE.Vector3());
     resetView();
     $('model-name').textContent = name.split('/').pop();
@@ -257,6 +266,7 @@ function resetView() {
 }
 
 function updateView() {
+  if (spatialAR?.locked) return;
   const scale = Number($('model-scale').value) / 100;
   const x = Number($('model-x').value), y = Number($('model-y').value);
   const distance = orbit.distance / scale;
@@ -278,7 +288,7 @@ function updateView() {
 }
 
 function resize() {
-  if (!renderer) return;
+  if (!renderer || spatialAR?.locked) return;
   const { width, height } = $('stage').getBoundingClientRect();
   if (!width || !height) return;
   renderer.setSize(width, height, false);
@@ -310,11 +320,11 @@ function seek(time) {
   syncTimeline();
 }
 
-function tick(now) {
-  requestAnimationFrame(tick);
+function tick(now, frame) {
   const delta = Math.min((now - lastFrame) / 1000, 0.05);
   lastFrame = now;
-  if (document.hidden || !renderer) return;
+  if ((document.hidden && !spatialAR?.active) || !renderer) return;
+  if (frame) spatialAR?.update(frame);
   if (playing && helper && action && !busy && !$('photo-dialog').open) {
     const step = delta * Number($('speed').value);
     helper.update(step);
@@ -328,8 +338,8 @@ function tick(now) {
 function cameraState() {
   $('camera-toggle').classList.toggle('active', !!stream);
   $('camera-toggle').querySelector('span').textContent = cameraPending ? '等待摄像头权限…' : stream ? '关闭摄像头' : '开启摄像头';
-  $('camera-toggle').disabled = cameraPending || !renderer;
-  $('mobile-camera').disabled = cameraPending || !renderer;
+  $('camera-toggle').disabled = cameraPending || !renderer || !!spatialAR?.locked;
+  $('mobile-camera').disabled = cameraPending || !renderer || !!spatialAR?.locked;
   $('mobile-camera').setAttribute('aria-label', cameraPending ? '等待摄像头权限' : stream ? '关闭摄像头' : '开启摄像头');
   $('mobile-camera').setAttribute('aria-pressed', String(!!stream));
   $('camera-device').disabled = !stream || cameraPending || $('camera-device').options.length < 2;
@@ -359,6 +369,7 @@ async function listCameras() {
 }
 
 async function startCamera(deviceId) {
+  if (spatialAR?.locked || leavingPage) return;
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
     message('摄像头需要通过 localhost 或 HTTPS 打开页面，请使用本地启动服务。', true); return;
   }
@@ -525,6 +536,65 @@ $('remove-motion').addEventListener('click', () => {
 function toggleCamera() { if (stream) { stopCamera(); message('摄像头已关闭，角色仍可单独拍照。'); } else startCamera(); }
 $('camera-toggle').addEventListener('click', toggleCamera);
 $('mobile-camera').addEventListener('click', toggleCamera);
+function arState(state) {
+  const supportText = {
+    checking: '正在检查空间 AR 支持…', available: '支持空间 AR：导入角色后，点击取景栏的 AR 即可放到地面或桌面。',
+    insecure: '空间 AR 需要 HTTPS；本机可使用 localhost。', unsupported: '此设备未提供空间 AR，可继续使用摄像头叠加与拍照。'
+  }[state.support];
+  $('ar-support').textContent = supportText;
+  $('ar-toggle').title = supportText;
+  $('ar-toggle').setAttribute('aria-pressed', String(!!state.active));
+  const wasActive = document.body.classList.contains('ar-active');
+  document.body.classList.toggle('ar-active', !!state.active);
+  $('ar-overlay').hidden = !state.active;
+  if (state.active && !wasActive) $('ar-exit').focus({ preventScroll: true });
+  $('ar-place').disabled = !state.canPlace || state.phase === 'ending';
+  $('ar-reposition').disabled = !state.placed || state.phase === 'ending';
+  $('ar-exit').disabled = state.phase === 'ending';
+  const hints = {
+    searching: '缓慢移动手机，寻找地面或桌面', ready: '找到平面了，点击「放在这里」或轻触画面',
+    placed: '角色已放置，移动手机从不同角度看看', 'tracking-lost': '定位暂时丢失，缓慢移动手机以恢复', ending: '正在退出 AR…'
+  };
+  if (hints[state.phase]) $('ar-status').textContent = hints[state.phase];
+  $('ar-height-value').textContent = `${Math.round(state.height * 100)} cm`;
+  if (state.phase === 'idle') {
+    if (wasActive) { message('已退出 AR，角色与动作已保留。'); $('render-canvas').focus({ preventScroll: true }); }
+    lastFrame = performance.now(); resize();
+    if (arResumeCamera !== null && !leavingPage) {
+      const device = arResumeCamera; arResumeCamera = null;
+      arCameraRestore = startCamera(device).finally(() => { arCameraRestore = null; });
+    }
+  }
+  refreshControls();
+}
+$('ar-toggle').addEventListener('click', async () => {
+  if (!spatialAR || spatialAR.locked || busy || cameraPending) return;
+  if (spatialAR.support !== 'available') { message($('ar-support').textContent, true); return; }
+  if (!mesh) { message('先导入一个角色或试用示例，再进入 AR。'); return; }
+  closeMobileSheet();
+  arResumeCamera = stream ? stream.getVideoTracks()[0]?.getSettings().deviceId || '' : null;
+  if (stream) stopCamera();
+  message('正在开启 AR，请允许浏览器使用空间定位。');
+  try { await spatialAR.start({ height: modelHeight, center: modelCenter, minY: modelMinY }); }
+  catch (error) {
+    if (arCameraRestore) await arCameraRestore;
+    const errors = {
+      NotAllowedError: 'AR 权限未获允许，可再次点击 AR 重试。', SecurityError: 'AR 权限被浏览器限制，请使用 HTTPS 并允许空间定位。',
+      NotSupportedError: '此设备不支持所需的平面识别或 AR 控件，可继续使用相机叠加。'
+    };
+    message(errors[error.name] || 'AR 开启失败，已返回相机。请检查设备支持并重试。', true);
+  }
+});
+$('ar-place').addEventListener('click', () => spatialAR?.place());
+$('ar-reposition').addEventListener('click', () => spatialAR?.reposition());
+$('ar-exit').addEventListener('click', () => spatialAR?.end().catch(() => { $('ar-status').textContent = '请使用浏览器的返回按钮退出 AR。'; $('ar-exit').disabled = false; }));
+$('ar-height').addEventListener('input', () => spatialAR?.setHeight(Number($('ar-height').value) / 100));
+$('ar-turn-left').addEventListener('click', () => spatialAR?.turn(Math.PI / 12));
+$('ar-turn-right').addEventListener('click', () => spatialAR?.turn(-Math.PI / 12));
+$('ar-play').addEventListener('click', () => $('play').click());
+$('ar-overlay').addEventListener('beforexrselect', event => {
+  if (event.target.closest('button, input, label')) event.preventDefault();
+});
 $('camera-device').addEventListener('change', () => startCamera($('camera-device').value));
 navigator.mediaDevices?.addEventListener('devicechange', () => { if (stream) listCameras().catch(() => {}); });
 $('mirror').addEventListener('change', () => $('webcam').classList.toggle('mirrored', $('mirror').checked));
@@ -564,13 +634,19 @@ document.addEventListener('dragover', event => { if (Array.from(event.dataTransf
 document.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('drop-overlay').hidden = true; } });
 document.addEventListener('drop', async event => {
   event.preventDefault(); dragDepth = 0; $('drop-overlay').hidden = true;
+  if (spatialAR?.locked) return;
   try {
     // Capture entries before awaiting: DataTransfer becomes inaccessible after dispatch.
     const files = event.dataTransfer.items.length ? await droppedFiles(event.dataTransfer.items) : Array.from(event.dataTransfer.files);
     await importAssets(files, 'drop');
   } catch { message('无法读取拖入的文件，请使用导入按钮或文件夹选择。', true); }
 });
-window.addEventListener('pagehide', () => { stopCamera(); if (photoURL) URL.revokeObjectURL(photoURL); });
+window.addEventListener('pagehide', () => {
+  leavingPage = true; arResumeCamera = null;
+  spatialAR?.end().catch(() => {});
+  stopCamera(); if (photoURL) URL.revokeObjectURL(photoURL);
+});
+window.addEventListener('pageshow', () => { leavingPage = false; });
 
 try {
   renderer = new THREE.WebGLRenderer({ canvas: $('render-canvas'), alpha: true, antialias: true, preserveDrawingBuffer: false });
@@ -578,8 +654,10 @@ try {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setClearColor(0x000000, 0);
+  spatialAR = new SpatialAR({ renderer, scene, camera, model: modelGroup, overlay: $('ar-overlay'), onState: arState });
+  spatialAR.detectSupport();
   new ResizeObserver(resize).observe($('stage'));
-  resize(); refreshControls(); cameraState(); requestAnimationFrame(tick);
+  resize(); refreshControls(); cameraState(); renderer.setAnimationLoop(tick);
   if (location.protocol === 'file:') message('请通过本地服务打开页面：在项目文件夹运行 node XRA_node_server.js。', true);
 } catch (error) {
   console.error('MMD Camera renderer:', error);
