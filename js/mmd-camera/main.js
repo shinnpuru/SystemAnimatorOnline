@@ -8,6 +8,7 @@ import { models, motions, bundledAsset } from './catalog.js';
 import { AnimeRenderer } from './anime-renderer.js';
 import { defaultLighting, estimateLighting } from './light-estimation.js';
 import { buildInBindPose } from './animation.js';
+import { CameraController, cameraFacing, deviceCamera, REAR_CAMERA, FRONT_CAMERA } from './camera.js';
 
 const $ = id => document.getElementById(id);
 const parser = new Parser();
@@ -18,7 +19,7 @@ scene.add(modelGroup);
 
 let renderer, mesh, helper, modelResources, motion, action;
 let duration = 0, position = 0, playing = false, busy = false;
-let stream = null, cameraRequest = 0, cameraPending = false, photoURL = null;
+let stream = null, cameraPending = false, cameraListRequest = 0, photoURL = null;
 let lastFrame = performance.now(), lastUI = 0, dragDepth = 0;
 let modelHeight = 20, modelMinY = 0, modelCenter = new THREE.Vector3(0, 10, 0);
 let spatialAR, arResumeCamera = null, arCameraRestore = null, leavingPage = false;
@@ -29,6 +30,11 @@ const lightContext = lightCanvas.getContext('2d', { willReadFrequently: true });
 let orbit = { theta: 0, phi: Math.PI / 2, distance: 50, x: 0, y: 0 };
 const backgroundColor = '#232b27';
 const WHITE_PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jL1sAAAAASUVORK5CYII=';
+const cameraController = new CameraController({
+  mediaDevices: navigator.mediaDevices, video: $('webcam'),
+  onState(state) { stream = state.stream; cameraPending = state.pending; cameraState(); },
+  onEnded() { message('摄像头连接已结束，可以重新开启。', true); }
+});
 
 function message(text, error = false) {
   $('status').textContent = text;
@@ -45,6 +51,8 @@ function refreshControls() {
   for (const id of ['play', 'restart', 'timeline', 'speed']) $(id).disabled = !action || busy;
   $('capture').disabled = (!mesh && !stream && !backgroundPhoto) || !renderer || busy || cameraPending || arLocked;
   for (const id of ['camera-toggle', 'mobile-camera']) $(id).disabled = cameraPending || !renderer || arLocked;
+  $('camera-device').disabled = cameraPending || !renderer || arLocked;
+  $('camera-flip').disabled = !stream || cameraPending || !renderer || arLocked;
   $('ar-toggle').disabled = !renderer || busy || cameraPending || arLocked || spatialAR?.support === 'checking';
   $('ar-play').disabled = !action || busy;
   $('empty-stage').hidden = !!mesh || !!stream || !!backgroundPhoto;
@@ -357,8 +365,9 @@ function cameraState() {
   $('mobile-camera').disabled = cameraPending || !renderer || !!spatialAR?.locked;
   $('mobile-camera').setAttribute('aria-label', cameraPending ? '等待摄像头权限' : stream ? '关闭摄像头' : '开启摄像头');
   $('mobile-camera').setAttribute('aria-pressed', String(!!stream));
-  $('camera-device').disabled = !stream || cameraPending || $('camera-device').options.length < 2;
-  $('camera-status').textContent = stream ? '摄像头已开启' : '摄像头未开启';
+  const facing = cameraFacing(stream, cameraController.selection);
+  $('camera-flip').setAttribute('aria-label', facing === FRONT_CAMERA ? '切换到后置摄像头' : '切换到前置摄像头');
+  $('camera-status').textContent = cameraPending ? '正在切换摄像头…' : stream ? (facing === REAR_CAMERA ? '后置摄像头' : facing === FRONT_CAMERA ? '前置摄像头' : '摄像头已开启') : '摄像头未开启';
   $('camera-dot').style.background = stream ? '#b6d284' : '#7b8776';
   $('webcam').hidden = !stream;
   $('photo-background').hidden = !!stream || !backgroundPhoto;
@@ -368,54 +377,53 @@ function cameraState() {
 }
 
 function stopCamera() {
-  cameraRequest++;
-  const previous = stream; stream = null;
-  for (const track of previous?.getTracks() || []) track.stop();
-  $('webcam').srcObject = null;
-  cameraPending = false; cameraState();
+  cameraListRequest++;
+  cameraController.stop();
 }
 
 async function listCameras() {
-  if (!navigator.mediaDevices?.enumerateDevices) return;
-  const devices = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === 'videoinput');
-  const selected = stream?.getVideoTracks()[0]?.getSettings().deviceId;
+  const request = ++cameraListRequest, currentStream = stream;
+  let devices = [];
+  try { devices = (await navigator.mediaDevices?.enumerateDevices?.() || []).filter(device => device.kind === 'videoinput' && device.deviceId); }
+  catch { /* Generic front/rear choices work without a device list. */ }
+  if (request !== cameraListRequest || currentStream !== stream || leavingPage) return;
   $('camera-device').replaceChildren();
-  devices.forEach((device, i) => { $('camera-device').add(new Option(device.label || `摄像头 ${i + 1}`, device.deviceId)); });
-  $('camera-device').disabled = !stream || cameraPending || devices.length < 2;
-  if (selected) $('camera-device').value = selected;
-  if (!devices.length) $('camera-device').add(new Option('默认摄像头', ''));
+  $('camera-device').add(new Option('后置摄像头（默认）', REAR_CAMERA));
+  $('camera-device').add(new Option('前置摄像头', FRONT_CAMERA));
+  const group = document.createElement('optgroup'); group.label = '其他镜头与设备';
+  const seen = new Set();
+  for (const [i, device] of devices.entries()) if (!seen.has(device.deviceId)) {
+    seen.add(device.deviceId); group.append(new Option(device.label || `摄像头 ${i + 1}`, deviceCamera(device.deviceId)));
+  }
+  if (group.children.length) $('camera-device').append(group);
+  const selection = cameraController.selection;
+  $('camera-device').value = [...$('camera-device').options].some(option => option.value === selection)
+    ? selection : cameraFacing(stream, selection) || REAR_CAMERA;
+  refreshControls();
 }
 
-async function startCamera(deviceId) {
+function setMirror(mirrored) { $('mirror').checked = mirrored; $('webcam').classList.toggle('mirrored', mirrored); }
+
+async function startCamera(selection = cameraController.selection, options = {}) {
   if (spatialAR?.locked || leavingPage) return;
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
     message('摄像头需要通过 localhost 或 HTTPS 打开页面，请使用本地启动服务。', true); return;
   }
-  const request = ++cameraRequest;
-  cameraPending = true; cameraState();
-  let acquired;
-  try {
-    acquired = await navigator.mediaDevices.getUserMedia({ audio: false, video: { ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'user' }), width: { ideal: 1920 }, height: { ideal: 1080 } } });
-    if (request !== cameraRequest) { acquired.getTracks().forEach(track => track.stop()); return; }
-    const previous = stream;
-    $('webcam').srcObject = acquired;
-    await $('webcam').play();
-    if (request !== cameraRequest) { acquired.getTracks().forEach(track => track.stop()); return; }
-    stream = acquired;
-    previous?.getTracks().forEach(track => track.stop());
-    for (const track of stream.getVideoTracks()) track.addEventListener('ended', () => {
-      if (stream === acquired) { stopCamera(); message('摄像头连接已结束，可以重新开启。', true); }
-    });
-    await listCameras();
-    message('摄像头已开启。调整角色的位置和大小，就可以拍照了。');
-  } catch (error) {
-    acquired?.getTracks().forEach(track => track.stop());
-    $('webcam').srcObject = stream;
+  const previousMirror = $('mirror').checked;
+  const result = await cameraController.start(selection, options);
+  if (result.cancelled || result.busy || leavingPage) return;
+  if (result.error) {
+    const error = result.error;
     const errors = { NotAllowedError: '摄像头权限被拒绝。请在浏览器中允许摄像头后重试。', NotFoundError: '没有找到可用摄像头，请连接设备后重试。', NotReadableError: '摄像头无法读取，可能正被其他应用占用。', OverconstrainedError: '选中的摄像头已不可用，请选择其他设备。' };
-    message(errors[error.name] || '摄像头开启失败，请检查设备和浏览器权限。', true);
-  } finally {
-    if (request === cameraRequest) { cameraPending = false; cameraState(); await listCameras().catch(() => {}); }
+    let text = ['NotFoundError', 'OverconstrainedError'].includes(error.name) && !selection.startsWith('device:')
+      ? `没有找到可用的${selection === REAR_CAMERA ? '后置' : '前置'}摄像头。` : errors[error.name] || '摄像头开启失败，请检查设备和浏览器权限。';
+    if (result.restored) { setMirror(previousMirror); text += '已恢复原来的镜头。'; }
+    message(text, true);
+  } else {
+    setMirror(options.mirror ?? cameraFacing(stream, cameraController.selection) === FRONT_CAMERA);
+    message('摄像头已开启。可在取景栏或设置里切换前后镜头。');
   }
+  await listCameras();
 }
 
 async function capture() {
@@ -691,8 +699,8 @@ function arState(state) {
     if (wasActive) { message('已退出 AR，角色与动作已保留。'); $('render-canvas').focus({ preventScroll: true }); }
     lastFrame = performance.now(); resize();
     if (arResumeCamera !== null && !leavingPage) {
-      const device = arResumeCamera; arResumeCamera = null;
-      arCameraRestore = startCamera(device).finally(() => { arCameraRestore = null; });
+      const previous = arResumeCamera; arResumeCamera = null;
+      arCameraRestore = startCamera(previous.selection, { mirror: previous.mirror }).finally(() => { arCameraRestore = null; });
     }
   }
   refreshControls();
@@ -702,7 +710,7 @@ $('ar-toggle').addEventListener('click', async () => {
   if (spatialAR.support !== 'available') { message($('ar-support').textContent, true); return; }
   if (!mesh) { message('先选择一个内置角色或导入角色，再进入 AR。'); return; }
   closeMobileSheet();
-  arResumeCamera = stream ? stream.getVideoTracks()[0]?.getSettings().deviceId || '' : null;
+  arResumeCamera = stream ? { selection: cameraController.selection, mirror: $('mirror').checked } : null;
   if (stream) stopCamera();
   message('正在开启 AR，请允许浏览器使用空间定位。');
   try { await spatialAR.start({ height: modelHeight, center: modelCenter, minY: modelMinY }); }
@@ -725,7 +733,12 @@ $('ar-play').addEventListener('click', () => $('play').click());
 $('ar-overlay').addEventListener('beforexrselect', event => {
   if (event.target.closest('button, input, label')) event.preventDefault();
 });
-$('camera-device').addEventListener('change', () => startCamera($('camera-device').value));
+$('camera-device').addEventListener('change', () => {
+  const selection = $('camera-device').value;
+  if (stream) startCamera(selection, { strictFacing: true });
+  else { cameraController.selection = selection; message('镜头已选择，点击「开启摄像头」开始取景。'); }
+});
+$('camera-flip').addEventListener('click', () => startCamera(cameraFacing(stream, cameraController.selection) === FRONT_CAMERA ? REAR_CAMERA : FRONT_CAMERA, { strictFacing: true }));
 navigator.mediaDevices?.addEventListener('devicechange', () => { if (stream) listCameras().catch(() => {}); });
 $('mirror').addEventListener('change', () => $('webcam').classList.toggle('mirrored', $('mirror').checked));
 for (const id of ['model-scale', 'model-x', 'model-y']) $(id).addEventListener('input', updateView);
