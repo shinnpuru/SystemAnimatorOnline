@@ -1,60 +1,105 @@
-<html>
+<!doctype html>
+<html lang="zh-CN">
 <head>
-
-<title>XR Animator</title>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0" />
-
-<meta property="og:title" content="XR Animator" />
-<meta property="og:type" content="website" />
-<meta property="og:url" content="http://www.animetheme.com/system_animator_online/XR_Animator.html" />
-<meta property="og:image" content="http://www.animetheme.com/system_animator_online/TEMP/DEMO/bg_xr_animator_c70.jpg" />
-<meta property="og:site_name" content="Anime Theme" />
-<meta property="og:description" content="AI Mocap and Augmented Reality" />
-
-<link rel="stylesheet" href="css/main.css" type="text/css" />
-
-<script>
-<!-- Google Analytics -->
-if (/^http.+animetheme\.com/.test(self.location.href)) {
-  (()=>{
-    const g_tag = 'G-6T8E0GJF5K';
-
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = 'https://www.googletagmanager.com/gtag/js?id=' + g_tag;
-    document.head.appendChild(script);
-
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', g_tag);
-  })();
-}
-<!-- End Google Analytics -->
-</script>
-
-<script language="javascript">
-var use_SA_browser_mode = true
-var _url_search_params_ = { cmd_line: "demo20" }
-</script>
-<script type="text/javascript" language="javascript" src="js/core.js"></script>
-<script type="text/javascript" language="javascript" src="js/core_extra.js"></script>
-<script language="javascript">
-SA_load_scripts()
-</script>
-
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="在摄像头画面中放入 MMD 角色，播放动作并拍照。角色、动作和照片只在本机处理。">
+  <meta name="theme-color" content="#f6f7f3">
+  <title>MMD Camera · 角色相机</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23252a28'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23dbe8b1' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/mmd-camera.css">
+  <script defer src="js/jszip.js"></script>
+  <script type="module" src="js/mmd-camera/main.js"></script>
 </head>
-<body onload="init()">
-
-<script language="javascript">
-SA_load_body()
-</script>
-
-<script language="javascript">
-SA_load_body2()
-</script>
-
+<body>
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <symbol id="i-aperture" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m12 3 5 9-5 9M4.2 7.5H15l5 9M4.2 16.5l5-9H20"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 6h4l2-3h4l2 3h4v14H4z"/><circle cx="12" cy="12.5" r="4"/></symbol>
+      <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M6 21v-4a6 6 0 0 1 12 0v4M3 12l4 2m14-2-4 2"/></symbol>
+      <symbol id="i-motion" viewBox="0 0 24 24"><path d="m14 3-4 7 5 3-5 8m0-11-6 2m11 1 5-4m-10 8-6 3"/><circle cx="18" cy="4" r="2"/></symbol>
+      <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="12" height="14" rx="3"/><path d="m15 10 6-4v12l-6-4"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24"><path d="M5 7V3M5 7h4M5 7a8 8 0 1 1-1 8"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></symbol>
+      <symbol id="i-cross" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+      <symbol id="i-turn" viewBox="0 0 24 24"><path d="M6 8h10a5 5 0 0 1 0 10h-3M6 8l4-4M6 8l4 4"/></symbol>
+    </defs>
+  </svg>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark"><svg><use href="#i-aperture"/></svg></span><span class="brand-name">MMD Camera</span><span class="brand-divider"></span><span class="brand-caption">一个角色，一段动作，一张照片。</span></div>
+    <div class="local-badge"><span class="dot"></span>LOCAL STUDIO</div>
+  </header>
+  <main class="page">
+    <section class="intro">
+      <div><p class="eyebrow">YOUR LITTLE VIRTUAL STUDIO</p><h1>把角色，带到你的镜头里。</h1><p>导入喜欢的 MMD 角色和动作，留下一张同框照片。</p></div>
+      <button class="sample" id="sample" type="button">试用示例<svg><use href="#i-arrow"/></svg></button>
+    </section>
+    <div class="workspace">
+      <aside class="sidebar" aria-label="角色、动作与相机设置">
+        <section class="panel-section">
+          <div class="section-heading"><h2>角色</h2><span class="section-number">01 / MODEL</span></div>
+          <button class="dropzone" id="import-model" type="button"><svg><use href="#i-person"/></svg><strong>导入 MMD 角色</strong><small>PMX / PMD / ZIP</small></button>
+          <input id="model-files" type="file" multiple hidden aria-label="选择角色文件及贴图">
+          <input id="model-folder" type="file" webkitdirectory multiple hidden aria-label="选择角色文件夹">
+          <p class="hint">带贴图的角色建议导入 ZIP，或 <button class="text-button" id="import-folder" type="button">选择整个文件夹</button>。</p>
+          <div class="asset-card" id="model-card" hidden><svg><use href="#i-person"/></svg><div class="asset-info"><strong id="model-name"></strong><small id="model-detail"></small></div><button class="icon-button" id="remove-model" aria-label="移除角色" type="button"><svg><use href="#i-cross"/></svg></button></div>
+        </section>
+        <section class="panel-section">
+          <div class="section-heading"><h2>动作</h2><span class="section-number">02 / MOTION</span></div>
+          <button class="dropzone" id="import-motion" type="button"><svg><use href="#i-motion"/></svg><strong>导入一段动作</strong><small>VMD / 动作 ZIP</small></button>
+          <input id="motion-files" type="file" accept=".vmd,.zip" multiple hidden aria-label="选择 VMD 动作">
+          <div class="asset-card" id="motion-card" hidden><svg><use href="#i-motion"/></svg><div class="asset-info"><strong id="motion-name"></strong><small id="motion-detail"></small></div><button class="icon-button" id="remove-motion" aria-label="移除动作" type="button"><svg><use href="#i-cross"/></svg></button></div>
+          <p class="hint" id="motion-hint">可以先导入动作，加载角色后再播放。</p>
+        </section>
+        <section class="panel-section">
+          <div class="section-heading"><h2>摄像头</h2><span class="section-number">03 / CAMERA</span></div>
+          <button class="camera-button" id="camera-toggle" type="button"><svg><use href="#i-video"/></svg><span>开启摄像头</span></button>
+          <div class="field"><label for="camera-device">输入设备</label><select class="select" id="camera-device" disabled><option value="">默认摄像头</option></select></div>
+          <div class="row checkbox-row"><label><input id="mirror" type="checkbox" checked>镜像摄像头画面</label></div>
+          <p class="hint">开启后，角色会叠加在实景画面上。</p>
+        </section>
+        <section class="panel-section">
+          <div class="section-heading"><h2>构图</h2><button class="reset-button" id="reset-view" type="button" disabled>重置</button></div>
+          <div class="field"><label class="range-label" for="model-scale">角色大小<output id="scale-value">100%</output></label><input class="range" id="model-scale" type="range" min="30" max="200" value="100" disabled></div>
+          <div class="field"><label class="range-label" for="model-x">水平位置<output id="x-value">0</output></label><input class="range" id="model-x" type="range" min="-100" max="100" value="0" disabled></div>
+          <div class="field"><label class="range-label" for="model-y">垂直位置<output id="y-value">0</output></label><input class="range" id="model-y" type="range" min="-100" max="100" value="0" disabled></div>
+          <div class="field"><label>角色朝向</label><div class="turn-buttons"><button id="turn-left" type="button" disabled><svg><use href="#i-turn"/></svg>向左转</button><button id="turn-right" type="button" disabled>向右转<svg style="transform:scaleX(-1)"><use href="#i-turn"/></svg></button></div></div>
+        </section>
+      </aside>
+      <section class="preview-column" aria-label="相机取景与动作播放">
+        <div class="view-header"><span class="view-title">LIVE VIEW / 实时取景</span><div class="view-tools"><select id="aspect" aria-label="照片画幅"><option value="16:9">16 : 9</option><option value="9:16">9 : 16</option><option value="1:1">1 : 1</option></select><span class="separator"></span><button class="icon-button" id="fullscreen" type="button" aria-label="全屏取景"><svg><use href="#i-expand"/></svg></button></div></div>
+        <div class="stage-shell" id="stage-shell">
+          <div class="stage" id="stage">
+            <video id="webcam" muted playsinline autoplay hidden class="mirrored"></video>
+            <div class="stage-grid" id="stage-grid"></div>
+            <canvas id="render-canvas" aria-label="MMD 角色预览，拖动旋转，按住 Shift 拖动平移，滚轮缩放" tabindex="0"></canvas>
+            <div class="stage-status"><span class="dot" id="camera-dot"></span><span id="camera-status">摄像头未开启</span></div>
+            <div class="empty-stage" id="empty-stage"><div class="empty-symbol"><svg><use href="#i-camera"/></svg></div><strong>镜头已就绪，等你的角色登场</strong><p>导入角色，或者先试用示例<br>开启摄像头，就能与角色一起入镜</p></div>
+            <div class="stage-frame"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></div>
+            <div class="stage-note">MMD CAMERA · LOCAL ONLY</div>
+            <div class="drop-overlay" id="drop-overlay" hidden>松开以导入角色或动作</div>
+          </div>
+        </div>
+        <div class="transport" aria-label="动作播放控制">
+          <button class="play-button" id="play" aria-label="播放动作" type="button" disabled><svg><use id="play-icon" href="#i-play"/></svg></button>
+          <button class="icon-button" id="restart" aria-label="回到动作开头" type="button" disabled><svg><use href="#i-restart"/></svg></button>
+          <input class="range timeline" id="timeline" type="range" min="0" max="1" step="0.001" value="0" aria-label="动作进度" disabled>
+          <span class="timecode"><span id="current-time">00:00</span> / <span id="total-time">00:00</span></span>
+          <select class="select" id="speed" aria-label="播放速度" disabled><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+          <label class="checkbox-row" style="margin:0;white-space:nowrap"><input id="loop" type="checkbox" checked aria-label="循环播放"> 循环</label>
+        </div>
+        <div class="below-preview"><div class="controls-note">拖动旋转镜头 · 滚轮缩放 · Shift + 拖动平移<br>手机可双指缩放与平移</div><button class="capture-button" id="capture" type="button" disabled><svg><use href="#i-camera"/></svg>拍一张<span>PNG</span></button></div>
+        <p id="status" class="status-message" role="status" aria-live="polite">准备好了。角色和动作文件只在浏览器内处理。</p>
+      </section>
+    </div>
+    <footer class="footnote"><div><svg><use href="#i-lock"/></svg>摄像头、角色与照片都留在本机</div><span>Built on System Animator · MMD Camera</span></footer>
+  </main>
+  <dialog class="modal" id="asset-picker" aria-labelledby="picker-title"><h2 id="picker-title">选择要使用的文件</h2><div class="modal-list" id="picker-list"></div><div class="modal-actions"><button id="picker-cancel" type="button">取消</button></div></dialog>
+  <dialog class="modal" id="photo-dialog" aria-labelledby="photo-title"><h2 id="photo-title">这张同框，留住了。</h2><img id="photo-preview" alt="摄像头实景与 MMD 角色合成照片"><div class="modal-actions"><button id="close-photo" type="button">继续拍摄</button><a id="download-photo" class="primary" download="mmd-camera.png">保存照片</a></div></dialog>
+  <noscript><p>请启用 JavaScript 后使用角色相机。</p></noscript>
 </body>
 </html>

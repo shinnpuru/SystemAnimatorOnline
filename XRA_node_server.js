@@ -31,7 +31,6 @@ const port = 3000;
 const http = require('http');
 const fs = require('fs').promises;
 const path = require('path');
-const url = require('url');
 
 // Define contentType object once, outside the server function
 const contentType = {
@@ -69,17 +68,22 @@ const contentType = {
     '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 
   '.mjs': 'text/javascript',
+  '.wasm': 'application/wasm',
 };
 
 const server = http.createServer(async (req, res) => {
     try {
         // Parse the URL and extract the pathname (strips query string)
-        const parsedUrl = url.parse(req.url);
-        const decodedPath = decodeURI(parsedUrl.pathname);
+        const parsedUrl = new URL(req.url, 'http://localhost');
+        const decodedPath = decodeURIComponent(parsedUrl.pathname);
 
         // Map the decoded pathname to a file path
-// NOTE: Always load 'XR_Animator.html' manually as the URL and not as the default path, as it may cause some weird module instancing problems (mainly three.js)
-        let filePath = path.join(__dirname, decodedPath === '/' ? '' : decodedPath);
+        const filePath = path.resolve(__dirname, '.' + (decodedPath === '/' ? '/index.html' : decodedPath));
+        if (!filePath.startsWith(__dirname + path.sep) || decodedPath.split('/').some(segment => segment.startsWith('.'))) {
+            res.writeHead(403);
+            res.end('Forbidden');
+            return;
+        }
 
         // Determine the content type based on file extension
         const extname = path.extname(filePath).toLowerCase();
@@ -101,6 +105,6 @@ const server = http.createServer(async (req, res) => {
     }
 });
 
-server.listen(port, () => {
+server.listen(port, '127.0.0.1', () => {
     console.log(`Server running at http://localhost:${port}/`);
 });
