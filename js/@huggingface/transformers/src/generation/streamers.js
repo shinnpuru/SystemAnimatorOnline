@@ -34,12 +34,19 @@ const stdout_write = apis.IS_PROCESS_AVAILABLE
 export class TextStreamer extends BaseStreamer {
     /**
      * 
-     * @param {import('../tokenizers.js').PreTrainedTokenizer} tokenizer 
+     * @param {import('../tokenizers.js').PreTrainedTokenizer} tokenizer
+     * @param {Object} options
+     * @param {boolean} [options.skip_prompt=false] Whether to skip the prompt tokens
+     * @param {boolean} [options.skip_special_tokens=true] Whether to skip special tokens when decoding
+     * @param {function(string): void} [options.callback_function=null] Function to call when a piece of text is ready to display
+     * @param {function(bigint[]): void} [options.token_callback_function=null] Function to call when a new token is generated
+     * @param {Object} [options.decode_kwargs={}] Additional keyword arguments to pass to the tokenizer's decode method
      */
     constructor(tokenizer, {
         skip_prompt = false,
         callback_function = null,
         token_callback_function = null,
+        skip_special_tokens = true,
         decode_kwargs = {},
         ...kwargs
     } = {}) {
@@ -48,7 +55,7 @@ export class TextStreamer extends BaseStreamer {
         this.skip_prompt = skip_prompt;
         this.callback_function = callback_function ?? stdout_write;
         this.token_callback_function = token_callback_function;
-        this.decode_kwargs = { ...decode_kwargs, ...kwargs };
+        this.decode_kwargs = { skip_special_tokens, ...decode_kwargs, ...kwargs };
 
         // variables used in the streaming process
         this.token_cache = [];
@@ -65,9 +72,10 @@ export class TextStreamer extends BaseStreamer {
             throw Error('TextStreamer only supports batch size of 1');
         }
 
-        if (this.skip_prompt && this.next_tokens_are_prompt) {
+        const is_prompt = this.next_tokens_are_prompt;
+        if (is_prompt) {
             this.next_tokens_are_prompt = false;
-            return;
+            if (this.skip_prompt) return;
         }
 
         const tokens = value[0];
@@ -78,7 +86,7 @@ export class TextStreamer extends BaseStreamer {
         const text = this.tokenizer.decode(this.token_cache, this.decode_kwargs);
 
         let printable_text;
-        if (text.endsWith('\n')) {
+        if (is_prompt || text.endsWith('\n')) {
             // After the symbol for a new line, we flush the cache.
             printable_text = text.slice(this.print_len);
             this.token_cache = [];
@@ -143,7 +151,7 @@ export class WhisperTextStreamer extends TextStreamer {
      * @param {Object} options
      * @param {boolean} [options.skip_prompt=false] Whether to skip the prompt tokens
      * @param {function(string): void} [options.callback_function=null] Function to call when a piece of text is ready to display
-     * @param {function(string): void} [options.token_callback_function=null] Function to call when a new token is generated
+     * @param {function(bigint[]): void} [options.token_callback_function=null] Function to call when a new token is generated
      * @param {function(number): void} [options.on_chunk_start=null] Function to call when a new chunk starts
      * @param {function(number): void} [options.on_chunk_end=null] Function to call when a chunk ends
      * @param {function(): void} [options.on_finalize=null] Function to call when the stream is finalized
@@ -164,9 +172,10 @@ export class WhisperTextStreamer extends TextStreamer {
     } = {}) {
         super(tokenizer, {
             skip_prompt,
+            skip_special_tokens,
             callback_function,
             token_callback_function,
-            decode_kwargs: { skip_special_tokens, ...decode_kwargs },
+            decode_kwargs,
         });
         this.timestamp_begin = tokenizer.timestamp_begin;
 

@@ -36,6 +36,10 @@ export type AnyRuntimeValue =
 	| NullValue
 	| UndefinedValue;
 
+// Control-flow exceptions for loop break/continue
+class BreakControl extends Error {}
+class ContinueControl extends Error {}
+
 /**
  * Abstract base class for all Runtime values.
  * Should not be instantiated directly.
@@ -115,6 +119,74 @@ export class StringValue extends RuntimeValue<string> {
 			"lstrip",
 			new FunctionValue(() => {
 				return new StringValue(this.value.trimStart());
+			}),
+		],
+		[
+			"startswith",
+			new FunctionValue((args) => {
+				if (args.length === 0) {
+					throw new Error("startswith() requires at least one argument");
+				}
+				const prefix = args[0];
+				if (!(prefix instanceof StringValue)) {
+					throw new Error("startswith() argument must be a string");
+				}
+				return new BooleanValue(this.value.startsWith(prefix.value));
+			}),
+		],
+		[
+			"endswith",
+			new FunctionValue((args) => {
+				if (args.length === 0) {
+					throw new Error("endswith() requires at least one argument");
+				}
+				const suffix = args[0];
+				if (!(suffix instanceof StringValue)) {
+					throw new Error("endswith() argument must be a string");
+				}
+				return new BooleanValue(this.value.endsWith(suffix.value));
+			}),
+		],
+		[
+			"split",
+			// follows Python's `str.split(sep=None, maxsplit=-1)` function behavior
+			// https://docs.python.org/3.13/library/stdtypes.html#str.split
+			new FunctionValue((args) => {
+				const sep = args[0] ?? new NullValue();
+				if (!(sep instanceof StringValue || sep instanceof NullValue)) {
+					throw new Error("sep argument must be a string or null");
+				}
+				const maxsplit = args[1] ?? new NumericValue(-1);
+				if (!(maxsplit instanceof NumericValue)) {
+					throw new Error("maxsplit argument must be a number");
+				}
+
+				let result = [];
+				if (sep instanceof NullValue) {
+					// If sep is not specified or is None, runs of consecutive whitespace are regarded as a single separator, and the
+					// result will contain no empty strings at the start or end if the string has leading or trailing whitespace.
+					// Trailing whitespace may be present when maxsplit is specified and there aren't sufficient matches in the string.
+					const text = this.value.trimStart();
+					for (const { 0: match, index } of text.matchAll(/\S+/g)) {
+						if (maxsplit.value !== -1 && result.length >= maxsplit.value && index !== undefined) {
+							result.push(match + text.slice(index + match.length));
+							break;
+						}
+						result.push(match);
+					}
+				} else {
+					// If sep is specified, consecutive delimiters are not grouped together and are deemed to delimit empty strings.
+					if (sep.value === "") {
+						throw new Error("empty separator");
+					}
+					result = this.value.split(sep.value);
+					if (maxsplit.value !== -1 && result.length > maxsplit.value) {
+						// Follow Python's behavior: If maxsplit is given, at most maxsplit splits are done,
+						// with any remaining text returned as the final element of the list.
+						result.push(result.splice(maxsplit.value).join(sep.value));
+					}
+				}
+				return new ArrayValue(result.map((part) => new StringValue(part)));
 			}),
 		],
 	]);
@@ -274,7 +346,8 @@ export class Environment {
 		["string", (operand) => operand.type === "StringValue"],
 		["number", (operand) => operand.type === "NumericValue"],
 		["integer", (operand) => operand.type === "NumericValue" && Number.isInteger((operand as NumericValue).value)],
-		["iterable", (operand) => operand instanceof ArrayValue || operand instanceof StringValue],
+		["iterable", (operand) => operand.type === "ArrayValue" || operand.type === "StringValue"],
+		["mapping", (operand) => operand.type === "ObjectValue"],
 		[
 			"lower",
 			(operand) => {
@@ -542,6 +615,10 @@ export class Interpreter {
 								}
 							})
 						);
+					case "join":
+						return new StringValue(operand.value.map((x) => x.value).join(""));
+					case "string":
+						return new StringValue(toJSON(operand));
 					default:
 						throw new Error(`Unknown ArrayValue filter: ${filter.value}`);
 				}
@@ -569,6 +646,7 @@ export class Interpreter {
 								)
 								.join("\n")
 						);
+					case "join":
 					case "string":
 						return operand; // no-op
 					default:
@@ -609,16 +687,37 @@ export class Interpreter {
 					throw new Error("If set, indent must be a number");
 				}
 				return new StringValue(toJSON(operand, indent.value));
+			} else if (filterName === "join") {
+				let value;
+				if (operand instanceof StringValue) {
+					// NOTE: string.split('') breaks for unicode characters
+					value = Array.from(operand.value);
+				} else if (operand instanceof ArrayValue) {
+					value = operand.value.map((x) => x.value);
+				} else {
+					throw new Error(`Cannot apply filter "${filterName}" to type: ${operand.type}`);
+				}
+				const [args, kwargs] = this.evaluateArguments(filter.args, environment);
+
+				const separator = args.at(0) ?? kwargs.get("separator") ?? new StringValue("");
+				if (!(separator instanceof StringValue)) {
+					throw new Error("separator must be a string");
+				}
+
+				return new StringValue(value.join(separator.value));
 			}
 
 			if (operand instanceof ArrayValue) {
 				switch (filterName) {
-					case "selectattr": {
+					case "selectattr":
+					case "rejectattr": {
+						const select = filterName === "selectattr";
+
 						if (operand.value.some((x) => !(x instanceof ObjectValue))) {
-							throw new Error("`selectattr` can only be applied to array of objects");
+							throw new Error(`\`${filterName}\` can only be applied to array of objects`);
 						}
 						if (filter.args.some((x) => x.type !== "StringLiteral")) {
-							throw new Error("arguments of `selectattr` must be strings");
+							throw new Error(`arguments of \`${filterName}\` must be strings`);
 						}
 
 						const [attr, testName, value] = filter.args.map((x) => this.evaluate(x, environment)) as StringValue[];
@@ -639,10 +738,8 @@ export class Interpreter {
 						// Filter the array using the test function
 						const filtered = (operand.value as ObjectValue[]).filter((item) => {
 							const a = item.value.get(attr.value);
-							if (a) {
-								return testFunction(a, value);
-							}
-							return false;
+							const result = a ? testFunction(a, value) : false;
+							return select ? result : !result;
 						});
 
 						return new ArrayValue(filtered);
@@ -851,7 +948,7 @@ export class Interpreter {
 	}
 
 	private evaluateSet(node: SetStatement, environment: Environment): NullValue {
-		const rhs = this.evaluate(node.value, environment);
+		const rhs = node.value ? this.evaluate(node.value, environment) : this.evaluateBlock(node.body, environment);
 		if (node.assignee.type === "Identifier") {
 			const variableName = (node.assignee as Identifier).value;
 			environment.setVariable(variableName, rhs);
@@ -965,9 +1062,19 @@ export class Interpreter {
 			// Update scope for this iteration
 			scopeUpdateFunctions[i](scope);
 
-			// Evaluate the body of the for loop
-			const evaluated = this.evaluateBlock(node.body, scope);
-			result += evaluated.value;
+			try {
+				// Evaluate the body of the for loop
+				const evaluated = this.evaluateBlock(node.body, scope);
+				result += evaluated.value;
+			} catch (err) {
+				if (err instanceof ContinueControl) {
+					continue;
+				}
+				if (err instanceof BreakControl) {
+					break;
+				}
+				throw err;
+			}
 
 			// At least one iteration took place
 			noIteration = false;
@@ -1045,6 +1152,11 @@ export class Interpreter {
 				return this.evaluateFor(statement as For, environment);
 			case "Macro":
 				return this.evaluateMacro(statement as Macro, environment);
+
+			case "Break":
+				throw new BreakControl();
+			case "Continue":
+				throw new ContinueControl();
 
 			// Expressions
 			case "NumericLiteral":

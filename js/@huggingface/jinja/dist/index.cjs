@@ -90,6 +90,7 @@ var TOKEN_TYPES = Object.freeze({
   Is: "Is",
   NotIn: "NotIn",
   Else: "Else",
+  EndSet: "EndSet",
   EndIf: "EndIf",
   ElseIf: "ElseIf",
   EndFor: "EndFor",
@@ -97,7 +98,9 @@ var TOKEN_TYPES = Object.freeze({
   Or: "Or",
   Not: "UnaryOperator",
   Macro: "Macro",
-  EndMacro: "EndMacro"
+  EndMacro: "EndMacro",
+  Break: "Break",
+  Continue: "Continue"
 });
 var KEYWORDS = Object.freeze({
   set: TOKEN_TYPES.Set,
@@ -106,6 +109,7 @@ var KEYWORDS = Object.freeze({
   is: TOKEN_TYPES.Is,
   if: TOKEN_TYPES.If,
   else: TOKEN_TYPES.Else,
+  endset: TOKEN_TYPES.EndSet,
   endif: TOKEN_TYPES.EndIf,
   elif: TOKEN_TYPES.ElseIf,
   endfor: TOKEN_TYPES.EndFor,
@@ -115,6 +119,8 @@ var KEYWORDS = Object.freeze({
   "not in": TOKEN_TYPES.NotIn,
   macro: TOKEN_TYPES.Macro,
   endmacro: TOKEN_TYPES.EndMacro,
+  break: TOKEN_TYPES.Break,
+  continue: TOKEN_TYPES.Continue,
   // Literals
   true: TOKEN_TYPES.BooleanLiteral,
   false: TOKEN_TYPES.BooleanLiteral,
@@ -341,11 +347,18 @@ var For = class extends Statement {
   }
   type = "For";
 };
+var Break = class extends Statement {
+  type = "Break";
+};
+var Continue = class extends Statement {
+  type = "Continue";
+};
 var SetStatement = class extends Statement {
-  constructor(assignee, value) {
+  constructor(assignee, value, body) {
     super();
     this.assignee = assignee;
     this.value = value;
+    this.body = body;
   }
   type = "Set";
 };
@@ -538,6 +551,16 @@ function parse(tokens) {
         expect(TOKEN_TYPES.EndFor, "Expected endfor token");
         expect(TOKEN_TYPES.CloseStatement, "Expected %} token");
         break;
+      case TOKEN_TYPES.Break:
+        ++current;
+        expect(TOKEN_TYPES.CloseStatement, "Expected closing statement token");
+        result = new Break();
+        break;
+      case TOKEN_TYPES.Continue:
+        ++current;
+        expect(TOKEN_TYPES.CloseStatement, "Expected closing statement token");
+        result = new Continue();
+        break;
       default:
         throw new SyntaxError(`Unknown statement type: ${tokens[current].type}`);
     }
@@ -553,10 +576,19 @@ function parse(tokens) {
     const left = parseExpression();
     if (is(TOKEN_TYPES.Equals)) {
       ++current;
-      const value = parseSetStatement();
-      return new SetStatement(left, value);
+      const value = parseExpression();
+      return new SetStatement(left, value, []);
+    } else {
+      const body = [];
+      expect(TOKEN_TYPES.CloseStatement, "Expected %} token");
+      while (!(tokens[current]?.type === TOKEN_TYPES.OpenStatement && tokens[current + 1]?.type === TOKEN_TYPES.EndSet)) {
+        const another = parseAny();
+        body.push(another);
+      }
+      expect(TOKEN_TYPES.OpenStatement, "Expected {% token");
+      expect(TOKEN_TYPES.EndSet, "Expected endset token");
+      return new SetStatement(left, null, body);
     }
-    return left;
   }
   function parseIfStatement() {
     const test = parseExpression();
@@ -699,18 +731,19 @@ function parse(tokens) {
     return left;
   }
   function parseCallMemberExpression() {
-    const member = parseMemberExpression();
+    const member = parseMemberExpression(parsePrimaryExpression());
     if (is(TOKEN_TYPES.OpenParen)) {
       return parseCallExpression(member);
     }
     return member;
   }
   function parseCallExpression(callee) {
-    let callExpression = new CallExpression(callee, parseArgs());
+    let expression = new CallExpression(callee, parseArgs());
+    expression = parseMemberExpression(expression);
     if (is(TOKEN_TYPES.OpenParen)) {
-      callExpression = parseCallExpression(callExpression);
+      expression = parseCallExpression(expression);
     }
-    return callExpression;
+    return expression;
   }
   function parseArgs() {
     expect(TOKEN_TYPES.OpenParen, "Expected opening parenthesis for arguments list");
@@ -764,8 +797,7 @@ function parse(tokens) {
     }
     return slices[0];
   }
-  function parseMemberExpression() {
-    let object = parsePrimaryExpression();
+  function parseMemberExpression(object) {
     while (is(TOKEN_TYPES.Dot) || is(TOKEN_TYPES.OpenSquareBracket)) {
       const operator = tokens[current];
       ++current;
@@ -926,6 +958,10 @@ function titleCase(value) {
 }
 
 // src/runtime.ts
+var BreakControl = class extends Error {
+};
+var ContinueControl = class extends Error {
+};
 var RuntimeValue = class {
   type = "RuntimeValue";
   value;
@@ -989,6 +1025,67 @@ var StringValue = class extends RuntimeValue {
       "lstrip",
       new FunctionValue(() => {
         return new StringValue(this.value.trimStart());
+      })
+    ],
+    [
+      "startswith",
+      new FunctionValue((args) => {
+        if (args.length === 0) {
+          throw new Error("startswith() requires at least one argument");
+        }
+        const prefix = args[0];
+        if (!(prefix instanceof StringValue)) {
+          throw new Error("startswith() argument must be a string");
+        }
+        return new BooleanValue(this.value.startsWith(prefix.value));
+      })
+    ],
+    [
+      "endswith",
+      new FunctionValue((args) => {
+        if (args.length === 0) {
+          throw new Error("endswith() requires at least one argument");
+        }
+        const suffix = args[0];
+        if (!(suffix instanceof StringValue)) {
+          throw new Error("endswith() argument must be a string");
+        }
+        return new BooleanValue(this.value.endsWith(suffix.value));
+      })
+    ],
+    [
+      "split",
+      // follows Python's `str.split(sep=None, maxsplit=-1)` function behavior
+      // https://docs.python.org/3.13/library/stdtypes.html#str.split
+      new FunctionValue((args) => {
+        const sep = args[0] ?? new NullValue();
+        if (!(sep instanceof StringValue || sep instanceof NullValue)) {
+          throw new Error("sep argument must be a string or null");
+        }
+        const maxsplit = args[1] ?? new NumericValue(-1);
+        if (!(maxsplit instanceof NumericValue)) {
+          throw new Error("maxsplit argument must be a number");
+        }
+        let result = [];
+        if (sep instanceof NullValue) {
+          const text = this.value.trimStart();
+          for (const { 0: match, index } of text.matchAll(/\S+/g)) {
+            if (maxsplit.value !== -1 && result.length >= maxsplit.value && index !== void 0) {
+              result.push(match + text.slice(index + match.length));
+              break;
+            }
+            result.push(match);
+          }
+        } else {
+          if (sep.value === "") {
+            throw new Error("empty separator");
+          }
+          result = this.value.split(sep.value);
+          if (maxsplit.value !== -1 && result.length > maxsplit.value) {
+            result.push(result.splice(maxsplit.value).join(sep.value));
+          }
+        }
+        return new ArrayValue(result.map((part) => new StringValue(part)));
       })
     ]
   ]);
@@ -1110,7 +1207,8 @@ var Environment = class {
     ["string", (operand) => operand.type === "StringValue"],
     ["number", (operand) => operand.type === "NumericValue"],
     ["integer", (operand) => operand.type === "NumericValue" && Number.isInteger(operand.value)],
-    ["iterable", (operand) => operand instanceof ArrayValue || operand instanceof StringValue],
+    ["iterable", (operand) => operand.type === "ArrayValue" || operand.type === "StringValue"],
+    ["mapping", (operand) => operand.type === "ObjectValue"],
     [
       "lower",
       (operand) => {
@@ -1325,6 +1423,10 @@ var Interpreter = class {
                 }
               })
             );
+          case "join":
+            return new StringValue(operand.value.map((x) => x.value).join(""));
+          case "string":
+            return new StringValue(toJSON(operand));
           default:
             throw new Error(`Unknown ArrayValue filter: ${filter.value}`);
         }
@@ -1351,6 +1453,7 @@ var Interpreter = class {
                 )
               ).join("\n")
             );
+          case "join":
           case "string":
             return operand;
           default:
@@ -1389,15 +1492,32 @@ var Interpreter = class {
           throw new Error("If set, indent must be a number");
         }
         return new StringValue(toJSON(operand, indent.value));
+      } else if (filterName === "join") {
+        let value;
+        if (operand instanceof StringValue) {
+          value = Array.from(operand.value);
+        } else if (operand instanceof ArrayValue) {
+          value = operand.value.map((x) => x.value);
+        } else {
+          throw new Error(`Cannot apply filter "${filterName}" to type: ${operand.type}`);
+        }
+        const [args, kwargs] = this.evaluateArguments(filter.args, environment);
+        const separator = args.at(0) ?? kwargs.get("separator") ?? new StringValue("");
+        if (!(separator instanceof StringValue)) {
+          throw new Error("separator must be a string");
+        }
+        return new StringValue(value.join(separator.value));
       }
       if (operand instanceof ArrayValue) {
         switch (filterName) {
-          case "selectattr": {
+          case "selectattr":
+          case "rejectattr": {
+            const select = filterName === "selectattr";
             if (operand.value.some((x) => !(x instanceof ObjectValue))) {
-              throw new Error("`selectattr` can only be applied to array of objects");
+              throw new Error(`\`${filterName}\` can only be applied to array of objects`);
             }
             if (filter.args.some((x) => x.type !== "StringLiteral")) {
-              throw new Error("arguments of `selectattr` must be strings");
+              throw new Error(`arguments of \`${filterName}\` must be strings`);
             }
             const [attr, testName, value] = filter.args.map((x) => this.evaluate(x, environment));
             let testFunction;
@@ -1412,10 +1532,8 @@ var Interpreter = class {
             }
             const filtered = operand.value.filter((item) => {
               const a = item.value.get(attr.value);
-              if (a) {
-                return testFunction(a, value);
-              }
-              return false;
+              const result = a ? testFunction(a, value) : false;
+              return select ? result : !result;
             });
             return new ArrayValue(filtered);
           }
@@ -1576,7 +1694,7 @@ var Interpreter = class {
     return value instanceof RuntimeValue ? value : new UndefinedValue();
   }
   evaluateSet(node, environment) {
-    const rhs = this.evaluate(node.value, environment);
+    const rhs = node.value ? this.evaluate(node.value, environment) : this.evaluateBlock(node.body, environment);
     if (node.assignee.type === "Identifier") {
       const variableName = node.assignee.value;
       environment.setVariable(variableName, rhs);
@@ -1666,8 +1784,18 @@ var Interpreter = class {
       ]);
       scope.setVariable("loop", new ObjectValue(loop));
       scopeUpdateFunctions[i](scope);
-      const evaluated = this.evaluateBlock(node.body, scope);
-      result += evaluated.value;
+      try {
+        const evaluated = this.evaluateBlock(node.body, scope);
+        result += evaluated.value;
+      } catch (err) {
+        if (err instanceof ContinueControl) {
+          continue;
+        }
+        if (err instanceof BreakControl) {
+          break;
+        }
+        throw err;
+      }
       noIteration = false;
     }
     if (noIteration) {
@@ -1727,6 +1855,10 @@ var Interpreter = class {
         return this.evaluateFor(statement, environment);
       case "Macro":
         return this.evaluateMacro(statement, environment);
+      case "Break":
+        throw new BreakControl();
+      case "Continue":
+        throw new ContinueControl();
       case "NumericLiteral":
         return new NumericValue(Number(statement.value));
       case "StringLiteral":
@@ -1829,6 +1961,194 @@ function toJSON(input, indent, depth) {
   }
 }
 
+// src/format.ts
+var NEWLINE = "\n";
+var OPEN_STATEMENT = "{%- ";
+var CLOSE_STATEMENT = " -%}";
+var OPERATOR_PRECEDENCE = {
+  MultiplicativeBinaryOperator: 2,
+  AdditiveBinaryOperator: 1,
+  ComparisonBinaryOperator: 0
+};
+function format(program, indent = "	") {
+  const indentStr = typeof indent === "number" ? " ".repeat(indent) : indent;
+  const body = formatStatements(program.body, 0, indentStr);
+  return body.replace(/\n$/, "");
+}
+function createStatement(...text) {
+  return OPEN_STATEMENT + text.join(" ") + CLOSE_STATEMENT;
+}
+function formatStatements(stmts, depth, indentStr) {
+  return stmts.map((stmt) => formatStatement(stmt, depth, indentStr)).join(NEWLINE);
+}
+function formatStatement(node, depth, indentStr) {
+  const pad = indentStr.repeat(depth);
+  switch (node.type) {
+    case "Program":
+      return formatStatements(node.body, depth, indentStr);
+    case "If":
+      return formatIf(node, depth, indentStr);
+    case "For":
+      return formatFor(node, depth, indentStr);
+    case "Set":
+      return formatSet(node, depth, indentStr);
+    case "Macro":
+      return formatMacro(node, depth, indentStr);
+    case "Break":
+      return pad + createStatement("break");
+    case "Continue":
+      return pad + createStatement("continue");
+    default:
+      return pad + "{{- " + formatExpression(node) + " -}}";
+  }
+}
+function formatIf(node, depth, indentStr) {
+  const pad = indentStr.repeat(depth);
+  const clauses = [];
+  let current = node;
+  while (current) {
+    clauses.push({ test: current.test, body: current.body });
+    if (current.alternate.length === 1 && current.alternate[0].type === "If") {
+      current = current.alternate[0];
+    } else {
+      break;
+    }
+  }
+  let out = pad + createStatement("if", formatExpression(clauses[0].test)) + NEWLINE + formatStatements(clauses[0].body, depth + 1, indentStr);
+  for (let i = 1; i < clauses.length; i++) {
+    out += NEWLINE + pad + createStatement("elif", formatExpression(clauses[i].test)) + NEWLINE + formatStatements(clauses[i].body, depth + 1, indentStr);
+  }
+  if (current && current.alternate.length > 0) {
+    out += NEWLINE + pad + createStatement("else") + NEWLINE + formatStatements(current.alternate, depth + 1, indentStr);
+  }
+  out += NEWLINE + pad + createStatement("endif");
+  return out;
+}
+function formatFor(node, depth, indentStr) {
+  const pad = indentStr.repeat(depth);
+  let formattedIterable = "";
+  if (node.iterable.type === "SelectExpression") {
+    const n = node.iterable;
+    formattedIterable = `${formatExpression(n.iterable)} if ${formatExpression(n.test)}`;
+  } else {
+    formattedIterable = formatExpression(node.iterable);
+  }
+  let out = pad + createStatement("for", formatExpression(node.loopvar), "in", formattedIterable) + NEWLINE + formatStatements(node.body, depth + 1, indentStr);
+  if (node.defaultBlock.length > 0) {
+    out += NEWLINE + pad + createStatement("else") + NEWLINE + formatStatements(node.defaultBlock, depth + 1, indentStr);
+  }
+  out += NEWLINE + pad + createStatement("endfor");
+  return out;
+}
+function formatSet(node, depth, indentStr) {
+  const pad = indentStr.repeat(depth);
+  const left = formatExpression(node.assignee);
+  const right = node.value ? formatExpression(node.value) : "";
+  const value = pad + createStatement("set", `${left}${node.value ? " = " + right : ""}`);
+  if (node.body.length === 0) {
+    return value;
+  }
+  return value + NEWLINE + formatStatements(node.body, depth + 1, indentStr) + NEWLINE + pad + createStatement("endset");
+}
+function formatMacro(node, depth, indentStr) {
+  const pad = indentStr.repeat(depth);
+  const args = node.args.map(formatExpression).join(", ");
+  return pad + createStatement("macro", `${node.name.value}(${args})`) + NEWLINE + formatStatements(node.body, depth + 1, indentStr) + NEWLINE + pad + createStatement("endmacro");
+}
+function formatExpression(node, parentPrec = -1) {
+  switch (node.type) {
+    case "Identifier":
+      return node.value;
+    case "NullLiteral":
+      return "none";
+    case "NumericLiteral":
+    case "BooleanLiteral":
+      return `${node.value}`;
+    case "StringLiteral":
+      return JSON.stringify(node.value);
+    case "BinaryExpression": {
+      const n = node;
+      const thisPrecedence = OPERATOR_PRECEDENCE[n.operator.type] ?? 0;
+      const left = formatExpression(n.left, thisPrecedence);
+      const right = formatExpression(n.right, thisPrecedence + 1);
+      const expr = `${left} ${n.operator.value} ${right}`;
+      return thisPrecedence < parentPrec ? `(${expr})` : expr;
+    }
+    case "UnaryExpression": {
+      const n = node;
+      const val = n.operator.value + (n.operator.value === "not" ? " " : "") + formatExpression(n.argument, Infinity);
+      return val;
+    }
+    case "LogicalNegationExpression":
+      return `not ${formatExpression(node.argument, Infinity)}`;
+    case "CallExpression": {
+      const n = node;
+      const args = n.args.map((a) => formatExpression(a, -1)).join(", ");
+      return `${formatExpression(n.callee, -1)}(${args})`;
+    }
+    case "MemberExpression": {
+      const n = node;
+      let obj = formatExpression(n.object, -1);
+      if (n.object.type !== "Identifier") {
+        obj = `(${obj})`;
+      }
+      let prop = formatExpression(n.property, -1);
+      if (!n.computed && n.property.type !== "Identifier") {
+        prop = `(${prop})`;
+      }
+      return n.computed ? `${obj}[${prop}]` : `${obj}.${prop}`;
+    }
+    case "FilterExpression": {
+      const n = node;
+      const operand = formatExpression(n.operand, Infinity);
+      if (n.filter.type === "CallExpression") {
+        return `${operand} | ${formatExpression(n.filter, -1)}`;
+      }
+      return `${operand} | ${n.filter.value}`;
+    }
+    case "SelectExpression": {
+      const n = node;
+      return `${formatExpression(n.iterable, -1)} | select(${formatExpression(n.test, -1)})`;
+    }
+    case "TestExpression": {
+      const n = node;
+      return `${formatExpression(n.operand, -1)} is${n.negate ? " not" : ""} ${n.test.value}`;
+    }
+    case "ArrayLiteral":
+    case "TupleLiteral": {
+      const elems = node.value.map((e) => formatExpression(e, -1));
+      const brackets = node.type === "ArrayLiteral" ? "[]" : "()";
+      return `${brackets[0]}${elems.join(", ")}${brackets[1]}`;
+    }
+    case "ObjectLiteral": {
+      const entries = Array.from(node.value.entries()).map(
+        ([k, v]) => `${formatExpression(k, -1)}: ${formatExpression(v, -1)}`
+      );
+      return `{ ${entries.join(", ")} }`;
+    }
+    case "SliceExpression": {
+      const n = node;
+      const s = n.start ? formatExpression(n.start, -1) : "";
+      const t = n.stop ? formatExpression(n.stop, -1) : "";
+      const st = n.step ? `:${formatExpression(n.step, -1)}` : "";
+      return `${s}:${t}${st}`;
+    }
+    case "KeywordArgumentExpression": {
+      const n = node;
+      return `${n.key.value}=${formatExpression(n.value, -1)}`;
+    }
+    case "If": {
+      const n = node;
+      const test = formatExpression(n.test, -1);
+      const body = formatExpression(n.body[0], 0);
+      const alternate = formatExpression(n.alternate[0], -1);
+      return `${body} if ${test} else ${alternate}`;
+    }
+    default:
+      throw new Error(`Unknown expression type: ${node.type}`);
+  }
+}
+
 // src/index.ts
 var Template = class {
   parsed;
@@ -1850,12 +2170,17 @@ var Template = class {
       throw new Error(args);
     });
     env.set("range", range);
-    for (const [key, value] of Object.entries(items)) {
-      env.set(key, value);
+    if (items) {
+      for (const [key, value] of Object.entries(items)) {
+        env.set(key, value);
+      }
     }
     const interpreter = new Interpreter(env);
     const result = interpreter.run(this.parsed);
     return result.value;
+  }
+  format(options) {
+    return format(this.parsed, options?.indent || "	");
   }
 };
 // Annotate the CommonJS export names for ESM import in node:

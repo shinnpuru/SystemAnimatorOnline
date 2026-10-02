@@ -1,6 +1,7 @@
 /*
 
-_SA.js (2023-09-29)
+_SA.js
+// (2025-08-24)
 
 System Animator
 (c) Butz Yung / Anime Theme. All rights reserved.
@@ -857,10 +858,12 @@ return function (event, enforced) {
   else { _browser_onkeydown=true }
 
   if (_browser_onkeydown && !System._browser.onkeydown(event)) {
-    if (!event.ctrlKey && !event.shiftKey && !is_altKey)
-      DEBUG_show(k, 2)
-    System._browser.showFocus(false)
-    return
+    if (!event.ctrlKey && !event.shiftKey && !is_altKey) {
+      DEBUG_show();
+      DEBUG_show(k,2);
+    }
+    System._browser.showFocus(false);
+    return;
   }
 
   if (webkit_electron_mode && (p_win.returnBoolean("IgnoreMouseEvents") || p_win.returnBoolean("AutoItStayOnDesktop"))) {
@@ -2631,11 +2634,13 @@ var RAF_frame_drop = 0
 
 var Animate_RAF = function (timestamp) {
 //EV_sync_update.fps_count_func()
-  if (EV_sync_update.requestAnimationFrame_auto)
-    RAF_timerID = requestAnimationFrame(Animate_RAF)
-  else
+  if (EV_sync_update.requestAnimationFrame_auto) {
+    RAF_timerID = System._browser.requestAnimationFrame(Animate_RAF);
+  }
+  else {
     RAF_timerID = null
 //RAF_timerID = setTimeout(function () { Animate_RAF(performance.now()) }, 1000/60)
+  }
 
   if (EV_sync_update.RAF_paused) {
     RAF_timestamp = timestamp

@@ -38,7 +38,7 @@
  * @returns {Promise<AllTasks[T]>} A Pipeline object for the specified task.
  * @throws {Error} If an unsupported pipeline is requested.
  */
-export function pipeline<T extends PipelineType>(task: T, model?: string, { progress_callback, config, cache_dir, local_files_only, revision, device, dtype, model_file_name, session_options, }?: import('./utils/hub.js').PretrainedModelOptions): Promise<AllTasks[T]>;
+export function pipeline<T extends PipelineType>(task: T, model?: string, { progress_callback, config, cache_dir, local_files_only, revision, device, dtype, subfolder, use_external_data_format, model_file_name, session_options, }?: import("./utils/hub.js").PretrainedModelOptions): Promise<AllTasks[T]>;
 declare const Pipeline_base: new () => {
     (...args: any[]): any;
     _call(...args: any[]): any;
@@ -53,7 +53,6 @@ declare const Pipeline_base: new () => {
 /**
  * The Pipeline class is the class from which all pipelines inherit.
  * Refer to this class for methods shared across different pipelines.
- * @extends Callable
  */
 export class Pipeline extends Pipeline_base {
     /**
@@ -325,8 +324,8 @@ declare const Text2TextGenerationPipeline_base: new (options: TextPipelineConstr
  */
 export class Text2TextGenerationPipeline extends Text2TextGenerationPipeline_base {
     /** @type {'generated_text'} */
-    _key: 'generated_text';
-    _call(texts: string | string[], options?: Partial<import('./generation/configuration_utils.js').GenerationConfig>): Promise<Text2TextGenerationOutput | Text2TextGenerationOutput[]>;
+    _key: "generated_text";
+    _call(texts: string | string[], options?: Partial<import("./generation/configuration_utils.js").GenerationConfig>): Promise<Text2TextGenerationOutput | Text2TextGenerationOutput[]>;
 }
 declare const SummarizationPipeline_base: new (options: TextPipelineConstructorArgs) => SummarizationPipelineType;
 /**
@@ -363,7 +362,7 @@ declare const SummarizationPipeline_base: new (options: TextPipelineConstructorA
  */
 export class SummarizationPipeline extends SummarizationPipeline_base {
     /** @type {'summary_text'} */
-    _key: 'summary_text';
+    _key: "summary_text";
 }
 declare const TranslationPipeline_base: new (options: TextPipelineConstructorArgs) => TranslationPipelineType;
 /**
@@ -425,7 +424,7 @@ declare const TranslationPipeline_base: new (options: TextPipelineConstructorArg
  */
 export class TranslationPipeline extends TranslationPipeline_base {
     /** @type {'translation_text'} */
-    _key: 'translation_text';
+    _key: "translation_text";
 }
 declare const TextGenerationPipeline_base: new (options: TextPipelineConstructorArgs) => TextGenerationPipelineType;
 /**
@@ -883,6 +882,11 @@ export class AutomaticSpeechRecognitionPipeline extends AutomaticSpeechRecogniti
      * @private
      */
     private _call_whisper;
+    /**
+     * @type {AutomaticSpeechRecognitionPipelineCallback}
+     * @private
+     */
+    private _call_moonshine;
 }
 declare const ImageToTextPipeline_base: new (options: TextImagePipelineConstructorArgs) => ImageToTextPipelineType;
 /**
@@ -917,7 +921,7 @@ declare const ImageToTextPipeline_base: new (options: TextImagePipelineConstruct
  * ```
  */
 export class ImageToTextPipeline extends ImageToTextPipeline_base {
-    _call(texts: ImagePipelineInputs, options?: Partial<import('./generation/configuration_utils.js').GenerationConfig>): Promise<ImageToTextOutput | ImageToTextOutput[]>;
+    _call(texts: ImagePipelineInputs, options?: Partial<import("./generation/configuration_utils.js").GenerationConfig>): Promise<ImageToTextOutput | ImageToTextOutput[]>;
 }
 declare const ImageClassificationPipeline_base: new (options: ImagePipelineConstructorArgs) => ImageClassificationPipelineType;
 /**
@@ -982,7 +986,7 @@ export class ImageClassificationPipeline extends ImageClassificationPipeline_bas
 declare const ImageSegmentationPipeline_base: new (options: ImagePipelineConstructorArgs) => ImageSegmentationPipelineType;
 /**
  * @typedef {Object} ImageSegmentationPipelineOutput
- * @property {string} label The label of the segment.
+ * @property {string|null} label The label of the segment.
  * @property {number|null} score The score of the segment.
  * @property {RawImage} mask The mask of the segment.
  *
@@ -1024,6 +1028,34 @@ export class ImageSegmentationPipeline extends ImageSegmentationPipeline_base {
         semantic: string;
     };
     _call(images: ImagePipelineInputs, options?: ImageSegmentationPipelineOptions): Promise<ImageSegmentationPipelineOutput[]>;
+}
+declare const BackgroundRemovalPipeline_base: new (options: ImagePipelineConstructorArgs) => BackgroundRemovalPipelineType;
+/**
+ * @typedef {Object} BackgroundRemovalPipelineOptions Parameters specific to image segmentation pipelines.
+ *
+ * @callback BackgroundRemovalPipelineCallback Segment the input images.
+ * @param {ImagePipelineInputs} images The input images.
+ * @param {BackgroundRemovalPipelineOptions} [options] The options to use for image segmentation.
+ * @returns {Promise<RawImage[]>} The images with the background removed.
+ *
+ * @typedef {ImagePipelineConstructorArgs & BackgroundRemovalPipelineCallback & Disposable} BackgroundRemovalPipelineType
+ */
+/**
+ * Background removal pipeline using certain `AutoModelForXXXSegmentation`.
+ * This pipeline removes the backgrounds of images.
+ *
+ * **Example:** Perform background removal with `Xenova/modnet`.
+ * ```javascript
+ * const segmenter = await pipeline('background-removal', 'Xenova/modnet');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/portrait-of-woman_small.jpg';
+ * const output = await segmenter(url);
+ * // [
+ * //   RawImage { data: Uint8ClampedArray(648000) [ ... ], width: 360, height: 450, channels: 4 }
+ * // ]
+ * ```
+ */
+export class BackgroundRemovalPipeline extends BackgroundRemovalPipeline_base {
+    _call(images: ImagePipelineInputs, options?: BackgroundRemovalPipelineOptions): Promise<RawImage[]>;
 }
 declare const ZeroShotImageClassificationPipeline_base: new (options: TextImagePipelineConstructorArgs) => ZeroShotImageClassificationPipelineType;
 /**
@@ -1225,7 +1257,7 @@ declare const DocumentQuestionAnsweringPipeline_base: new (options: TextImagePip
  * ```
  */
 export class DocumentQuestionAnsweringPipeline extends DocumentQuestionAnsweringPipeline_base {
-    _call(image: ImageInput, question: string, options?: Partial<import('./generation/configuration_utils.js').GenerationConfig>): Promise<DocumentQuestionAnsweringOutput | DocumentQuestionAnsweringOutput[]>;
+    _call(image: ImageInput, question: string, options?: Partial<import("./generation/configuration_utils.js").GenerationConfig>): Promise<DocumentQuestionAnsweringOutput | DocumentQuestionAnsweringOutput[]>;
 }
 declare const TextToAudioPipeline_base: new (options: TextToAudioPipelineConstructorArgs) => TextToAudioPipelineType;
 /**
@@ -1257,7 +1289,7 @@ declare const TextToAudioPipeline_base: new (options: TextToAudioPipelineConstru
  * const synthesizer = await pipeline('text-to-speech', 'Xenova/speecht5_tts', { quantized: false });
  * const speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
  * const out = await synthesizer('Hello, my dog is cute', { speaker_embeddings });
- * // {
+ * // RawAudio {
  * //   audio: Float32Array(26112) [-0.00005657337896991521, 0.00020583874720614403, ...],
  * //   sampling_rate: 16000
  * // }
@@ -1277,7 +1309,7 @@ declare const TextToAudioPipeline_base: new (options: TextToAudioPipelineConstru
  * ```javascript
  * const synthesizer = await pipeline('text-to-speech', 'Xenova/mms-tts-fra');
  * const out = await synthesizer('Bonjour');
- * // {
+ * // RawAudio {
  * //   audio: Float32Array(23808) [-0.00037693005288019776, 0.0003325853613205254, ...],
  * //   sampling_rate: 16000
  * // }
@@ -1287,16 +1319,10 @@ export class TextToAudioPipeline extends TextToAudioPipeline_base {
     DEFAULT_VOCODER_ID: string;
     vocoder: PreTrainedModel;
     _call(texts: string | string[], options: TextToAudioPipelineOptions): Promise<TextToAudioOutput>;
-    _call_text_to_waveform(text_inputs: any): Promise<{
-        audio: any;
-        sampling_rate: any;
-    }>;
+    _call_text_to_waveform(text_inputs: any): Promise<RawAudio>;
     _call_text_to_spectrogram(text_inputs: any, { speaker_embeddings }: {
         speaker_embeddings: any;
-    }): Promise<{
-        audio: any;
-        sampling_rate: any;
-    }>;
+    }): Promise<RawAudio>;
 }
 declare const ImageToImagePipeline_base: new (options: ImagePipelineConstructorArgs) => ImageToImagePipelineType;
 /**
@@ -1364,7 +1390,7 @@ declare const DepthEstimationPipeline_base: new (options: ImagePipelineConstruct
 export class DepthEstimationPipeline extends DepthEstimationPipeline_base {
     _call(images: ImagePipelineInputs): Promise<DepthEstimationPipelineOutput | DepthEstimationPipelineOutput[]>;
 }
-export type ImageInput = string | RawImage | URL;
+export type ImageInput = string | RawImage | URL | Blob | HTMLCanvasElement | OffscreenCanvas;
 export type ImagePipelineInputs = ImageInput | ImageInput[];
 export type AudioInput = string | URL | Float32Array | Float64Array;
 export type AudioPipelineInputs = AudioInput | AudioInput[];
@@ -1395,42 +1421,17 @@ export type PipelineType = TaskType | AliasType;
 /**
  * A mapping of pipeline names to their corresponding pipeline classes.
  */
-export type SupportedTasks = {
-    "text-classification": TextClassificationPipeline;
-    "token-classification": TokenClassificationPipeline;
-    "question-answering": QuestionAnsweringPipeline;
-    "fill-mask": FillMaskPipeline;
-    summarization: SummarizationPipeline;
-    translation: TranslationPipeline;
-    "text2text-generation": Text2TextGenerationPipeline;
-    "text-generation": TextGenerationPipeline;
-    "zero-shot-classification": ZeroShotClassificationPipeline;
-    "audio-classification": AudioClassificationPipeline;
-    "zero-shot-audio-classification": ZeroShotAudioClassificationPipeline;
-    "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline;
-    "text-to-audio": TextToAudioPipeline;
-    "image-to-text": ImageToTextPipeline;
-    "image-classification": ImageClassificationPipeline;
-    "image-segmentation": ImageSegmentationPipeline;
-    "zero-shot-image-classification": ZeroShotImageClassificationPipeline;
-    "object-detection": ObjectDetectionPipeline;
-    "zero-shot-object-detection": ZeroShotObjectDetectionPipeline;
-    "document-question-answering": DocumentQuestionAnsweringPipeline;
-    "image-to-image": ImageToImagePipeline;
-    "depth-estimation": DepthEstimationPipeline;
-    "feature-extraction": FeatureExtractionPipeline;
-    "image-feature-extraction": ImageFeatureExtractionPipeline;
-};
+export type SupportedTasks = { [K in TaskType]: InstanceType<(typeof SUPPORTED_TASKS)[K]["pipeline"]>; };
 /**
  * A mapping from pipeline aliases to their corresponding pipeline classes.
  */
-export type AliasTasks = {
-    embeddings: FeatureExtractionPipeline;
-    "sentiment-analysis": TextClassificationPipeline;
-    ner: TokenClassificationPipeline;
-    asr: AutomaticSpeechRecognitionPipeline;
-    "text-to-speech": TextToAudioPipeline;
-};
+export type AliasTasks = { [K in AliasType]: InstanceType<(typeof SUPPORTED_TASKS)[Readonly<{
+    "sentiment-analysis": "text-classification";
+    ner: "token-classification";
+    asr: "automatic-speech-recognition";
+    "text-to-speech": "text-to-audio";
+    embeddings: "feature-extraction";
+}>[K]]["pipeline"]>; };
 /**
  * A mapping from all pipeline names and aliases to their corresponding pipeline classes.
  */
@@ -1652,7 +1653,7 @@ export type Text2TextGenerationOutput = Text2TextGenerationSingle[];
 /**
  * Generate the output text(s) using text(s) given as inputs.
  */
-export type Text2TextGenerationPipelineCallback = (texts: string | string[], options?: Partial<import('./generation/configuration_utils.js').GenerationConfig>) => Promise<Text2TextGenerationOutput | Text2TextGenerationOutput[]>;
+export type Text2TextGenerationPipelineCallback = (texts: string | string[], options?: Partial<import("./generation/configuration_utils.js").GenerationConfig>) => Promise<Text2TextGenerationOutput | Text2TextGenerationOutput[]>;
 export type Text2TextGenerationPipelineType = TextPipelineConstructorArgs & Text2TextGenerationPipelineCallback & Disposable;
 export type SummarizationSingle = {
     /**
@@ -1664,7 +1665,7 @@ export type SummarizationOutput = SummarizationSingle[];
 /**
  * Summarize the text(s) given as inputs.
  */
-export type SummarizationPipelineCallback = (texts: string | string[], options?: import('./generation/configuration_utils.js').GenerationConfig) => Promise<SummarizationOutput | SummarizationOutput[]>;
+export type SummarizationPipelineCallback = (texts: string | string[], options?: import("./generation/configuration_utils.js").GenerationConfig) => Promise<SummarizationOutput | SummarizationOutput[]>;
 export type SummarizationPipelineType = TextPipelineConstructorArgs & SummarizationPipelineCallback & Disposable;
 export type TranslationSingle = {
     /**
@@ -1676,9 +1677,9 @@ export type TranslationOutput = TranslationSingle[];
 /**
  * Translate the text(s) given as inputs.
  */
-export type TranslationPipelineCallback = (texts: string | string[], options?: import('./generation/configuration_utils.js').GenerationConfig) => Promise<TranslationOutput | TranslationOutput[]>;
+export type TranslationPipelineCallback = (texts: string | string[], options?: import("./generation/configuration_utils.js").GenerationConfig) => Promise<TranslationOutput | TranslationOutput[]>;
 export type TranslationPipelineType = TextPipelineConstructorArgs & TranslationPipelineCallback & Disposable;
-export type Chat = import('./tokenizers.js').Message[];
+export type Chat = import("./tokenizers.js").Message[];
 export type TextGenerationSingle = {
     /**
      * The generated text.
@@ -1699,7 +1700,7 @@ export type TextGenerationSpecificParams = {
      */
     return_full_text?: boolean;
 };
-export type TextGenerationConfig = import('./generation/configuration_utils.js').GenerationConfig & TextGenerationSpecificParams;
+export type TextGenerationConfig = import("./generation/configuration_utils.js").GenerationConfig & TextGenerationSpecificParams;
 /**
  * Complete the prompt(s) given as inputs.
  */
@@ -1748,7 +1749,7 @@ export type FeatureExtractionPipelineOptions = {
     /**
      * The pooling method to use.
      */
-    pooling?: 'none' | 'mean' | 'cls';
+    pooling?: "none" | "mean" | "cls";
     /**
      * Whether or not to normalize the embeddings in the last dimension.
      */
@@ -1760,7 +1761,7 @@ export type FeatureExtractionPipelineOptions = {
     /**
      * The precision to use for quantization.
      */
-    precision?: 'binary' | 'ubinary';
+    precision?: "binary" | "ubinary";
 };
 /**
  * Extract the features of the input(s).
@@ -1862,7 +1863,7 @@ export type AutomaticSpeechRecognitionSpecificParams = {
     /**
      * Whether to return timestamps or not. Default is `false`.
      */
-    return_timestamps?: boolean | 'word';
+    return_timestamps?: boolean | "word";
     /**
      * The length of audio chunks to process in seconds. Default is 0 (no chunking).
      */
@@ -1888,7 +1889,7 @@ export type AutomaticSpeechRecognitionSpecificParams = {
      */
     num_frames?: number;
 };
-export type AutomaticSpeechRecognitionConfig = import('./generation/configuration_utils.js').GenerationConfig & AutomaticSpeechRecognitionSpecificParams;
+export type AutomaticSpeechRecognitionConfig = import("./generation/configuration_utils.js").GenerationConfig & AutomaticSpeechRecognitionSpecificParams;
 /**
  * Transcribe the audio sequence(s) given as inputs to text.
  */
@@ -1904,7 +1905,7 @@ export type ImageToTextOutput = ImageToTextSingle[];
 /**
  * Assign labels to the image(s) passed as inputs.
  */
-export type ImageToTextPipelineCallback = (texts: ImagePipelineInputs, options?: Partial<import('./generation/configuration_utils.js').GenerationConfig>) => Promise<ImageToTextOutput | ImageToTextOutput[]>;
+export type ImageToTextPipelineCallback = (texts: ImagePipelineInputs, options?: Partial<import("./generation/configuration_utils.js").GenerationConfig>) => Promise<ImageToTextOutput | ImageToTextOutput[]>;
 export type ImageToTextPipelineType = TextImagePipelineConstructorArgs & ImageToTextPipelineCallback & Disposable;
 export type ImageClassificationSingle = {
     /**
@@ -1935,7 +1936,7 @@ export type ImageSegmentationPipelineOutput = {
     /**
      * The label of the segment.
      */
-    label: string;
+    label: string | null;
     /**
      * The score of the segment.
      */
@@ -1980,6 +1981,15 @@ export type ImageSegmentationPipelineOptions = {
  */
 export type ImageSegmentationPipelineCallback = (images: ImagePipelineInputs, options?: ImageSegmentationPipelineOptions) => Promise<ImageSegmentationPipelineOutput[]>;
 export type ImageSegmentationPipelineType = ImagePipelineConstructorArgs & ImageSegmentationPipelineCallback & Disposable;
+/**
+ * Parameters specific to image segmentation pipelines.
+ */
+export type BackgroundRemovalPipelineOptions = any;
+/**
+ * Segment the input images.
+ */
+export type BackgroundRemovalPipelineCallback = (images: ImagePipelineInputs, options?: BackgroundRemovalPipelineOptions) => Promise<RawImage[]>;
+export type BackgroundRemovalPipelineType = ImagePipelineConstructorArgs & BackgroundRemovalPipelineCallback & Disposable;
 export type ZeroShotImageClassificationOutput = {
     /**
      * The label identified by the model. It is one of the suggested `candidate_label`.
@@ -2087,7 +2097,7 @@ export type DocumentQuestionAnsweringOutput = DocumentQuestionAnsweringSingle[];
 /**
  * Answer the question given as input by using the document.
  */
-export type DocumentQuestionAnsweringPipelineCallback = (image: ImageInput, question: string, options?: Partial<import('./generation/configuration_utils.js').GenerationConfig>) => Promise<DocumentQuestionAnsweringOutput | DocumentQuestionAnsweringOutput[]>;
+export type DocumentQuestionAnsweringPipelineCallback = (image: ImageInput, question: string, options?: Partial<import("./generation/configuration_utils.js").GenerationConfig>) => Promise<DocumentQuestionAnsweringOutput | DocumentQuestionAnsweringOutput[]>;
 export type DocumentQuestionAnsweringPipelineType = TextImagePipelineConstructorArgs & DocumentQuestionAnsweringPipelineCallback & Disposable;
 export type VocoderOptions = {
     /**
@@ -2142,9 +2152,10 @@ export type DepthEstimationPipelineCallback = (images: ImagePipelineInputs) => P
 export type DepthEstimationPipelineType = ImagePipelineConstructorArgs & DepthEstimationPipelineCallback & Disposable;
 import { PreTrainedModel } from './models.js';
 import { PreTrainedTokenizer } from './tokenizers.js';
-import { Processor } from './processors.js';
+import { Processor } from './base/processing_utils.js';
 import { Tensor } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
+import { RawAudio } from './utils/audio.js';
 declare const SUPPORTED_TASKS: Readonly<{
     "text-classification": {
         tokenizer: typeof AutoTokenizer;
@@ -2259,7 +2270,7 @@ declare const SUPPORTED_TASKS: Readonly<{
     "text-to-audio": {
         tokenizer: typeof AutoTokenizer;
         pipeline: typeof TextToAudioPipeline;
-        model: (typeof AutoModelForTextToSpectrogram | typeof AutoModelForTextToWaveform)[];
+        model: (typeof AutoModelForTextToWaveform | typeof AutoModelForTextToSpectrogram)[];
         processor: (typeof AutoProcessor)[];
         default: {
             model: string;
@@ -2287,6 +2298,15 @@ declare const SUPPORTED_TASKS: Readonly<{
     };
     "image-segmentation": {
         pipeline: typeof ImageSegmentationPipeline;
+        model: (typeof AutoModelForImageSegmentation)[];
+        processor: typeof AutoProcessor;
+        default: {
+            model: string;
+        };
+        type: string;
+    };
+    "background-removal": {
+        pipeline: typeof BackgroundRemovalPipeline;
         model: (typeof AutoModelForImageSegmentation)[];
         processor: typeof AutoProcessor;
         default: {
@@ -2385,11 +2405,11 @@ import { AutoModelForMaskedLM } from './models.js';
 import { AutoModelForSeq2SeqLM } from './models.js';
 import { AutoModelForCausalLM } from './models.js';
 import { AutoModelForAudioClassification } from './models.js';
-import { AutoProcessor } from './processors.js';
+import { AutoProcessor } from './models/auto/processing_auto.js';
 import { AutoModel } from './models.js';
 import { AutoModelForSpeechSeq2Seq } from './models.js';
-import { AutoModelForTextToSpectrogram } from './models.js';
 import { AutoModelForTextToWaveform } from './models.js';
+import { AutoModelForTextToSpectrogram } from './models.js';
 import { AutoModelForVision2Seq } from './models.js';
 import { AutoModelForImageClassification } from './models.js';
 import { AutoModelForImageSegmentation } from './models.js';

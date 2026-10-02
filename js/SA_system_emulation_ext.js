@@ -1,5 +1,5 @@
 // System object emultaion - extension
-// (2024-10-10)
+// (2025-02-22)
 
 var xul_mode
 

@@ -1,5 +1,5 @@
 // System Animator core basics
-// (2024-10-10)
+// (2025-08-24)
 
 var use_SA_browser_mode
 
@@ -558,7 +558,7 @@ var WallpaperEngine_CEF_native_mode
 var Settings_WE = {}
 
 //var _js_min_mode_ = true
-var localhost_mode = /localhost|192\.168\./.test(self.location.hostname)
+var localhost_mode = /localhost|192\.168\./.test(self.location.hostname) && /AT_SystemAnimator_v0001\.gadget/.test(self.location.href);
 var browser_native_mode = /^https?\:/i.test(location.href)// = true//
 if (browser_native_mode) {
   WallpaperEngine_CEF_mode = true
@@ -567,7 +567,7 @@ if (browser_native_mode) {
 
 linux_mode = !browser_native_mode && linux_mode;
 var mac_mode = !browser_native_mode && /(macintosh|macintel|macppc|mac68k|macos)/i.test(navigator.userAgent);
-var save_settings_by_localStorage = WallpaperEngine_CEF_mode || mac_mode;
+var save_settings_by_localStorage = true;
 
 // Silverlight 5 64-bit is supported only on Windows 7 and above
 var ie_64bit = (/MSIE.+Win64.+x64/i.test(navigator.userAgent) && !W7_or_above)

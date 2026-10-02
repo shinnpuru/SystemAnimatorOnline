@@ -1,4 +1,4 @@
-// (2024-10-14)
+// (2025-08-24)
 
 /*!
  * jThree JavaScript Library v2.1.2
@@ -4080,37 +4080,55 @@ THREE.Matrix4.prototype = {
 
 	lookAt: function() {
 
-		var x = new THREE.Vector3();
-		var y = new THREE.Vector3();
-		var z = new THREE.Vector3();
+// backported
+// https://github.com/mrdoob/three.js/blob/master/src/math/Matrix4.js
+
+		var _x = new THREE.Vector3();
+		var _y = new THREE.Vector3();
+		var _z = new THREE.Vector3();
 
 		return function ( eye, target, up ) {
 
-			var te = this.elements;
+			const te = this.elements;
 
-			z.subVectors( eye, target ).normalize();
+			_z.subVectors( eye, target );
 
-			if ( z.length() === 0 ) {
+			if ( _z.lengthSq() === 0 ) {
 
-				z.z = 1;
+				// eye and target are in the same position
 
-			}
-
-			x.crossVectors( up, z ).normalize();
-
-			if ( x.length() === 0 ) {
-
-				z.x += 0.0001;
-				x.crossVectors( up, z ).normalize();
+				_z.z = 1;
 
 			}
 
-			y.crossVectors( z, x );
+			_z.normalize();
+			_x.crossVectors( up, _z );
 
+			if ( _x.lengthSq() === 0 ) {
 
-			te[0] = x.x; te[4] = y.x; te[8] = z.x;
-			te[1] = x.y; te[5] = y.y; te[9] = z.y;
-			te[2] = x.z; te[6] = y.z; te[10] = z.z;
+				// up and z are parallel
+
+				if ( Math.abs( up.z ) === 1 ) {
+
+					_z.x += 0.0001;
+
+				} else {
+
+					_z.z += 0.0001;
+
+				}
+
+				_z.normalize();
+				_x.crossVectors( up, _z );
+
+			}
+
+			_x.normalize();
+			_y.crossVectors( _z, _x );
+
+			te[ 0 ] = _x.x; te[ 4 ] = _y.x; te[ 8 ] = _z.x;
+			te[ 1 ] = _x.y; te[ 5 ] = _y.y; te[ 9 ] = _z.y;
+			te[ 2 ] = _x.z; te[ 6 ] = _y.z; te[ 10 ] = _z.z;
 
 			return this;
 
@@ -12220,9 +12238,14 @@ THREE.ShaderChunk = {
 "#if defined( VERTEX_TEXTURES ) && ( defined( USE_DISPLACEMENTMAP ) || defined( USE_WAVE_TEXTURE ) )",
 	"vec4 worldPosition = modelMatrix * vec4( displacedPosition, 1.0 );",
 "#else",
+// AT: XRA_WALLPAPER_3D
+'#ifdef XRA_WALLPAPER_3D',
+  'vec4 worldPosition = modelMatrix * vec4( transformed, 1.0 );',
+"#else",
 
 				"vec4 worldPosition = modelMatrix * vec4( position, 1.0 );",
 
+"#endif",
 "#endif",
 
 			"#endif",
@@ -12280,6 +12303,18 @@ THREE.ShaderChunk = {
 "#endif",
 
 	].join("\n"),
+
+// AT: XRA_WALLPAPER_3D
+XRA_WALLPAPER_3D_pars_vertex: [
+  '#ifdef XRA_WALLPAPER_3D',
+  'uniform sampler2D Wallpaper3D_displacementMap;',
+  'uniform float Wallpaper3D_camera_factor;',
+  'uniform float Wallpaper3D_camera_distance_offset;',
+  'uniform float Wallpaper3D_scale_z;',
+  'uniform vec3 Wallpaper3D_pos_offset;',
+//  'uniform mat4 Wallpaper3D_modelViewMatrix;',
+  '#endif',
+].join("\n"),
 
 // AT: uniTexture
 uniTexture_pars_vertex: [
@@ -13580,9 +13615,21 @@ uniTexture_fragment: [
 "#if defined( VERTEX_TEXTURES ) && ( defined( USE_DISPLACEMENTMAP ) || defined( USE_WAVE_TEXTURE ) )",
 	"mvPosition = modelViewMatrix * vec4( displacedPosition, 1.0 );",
 "#else",
+// AT: XRA_WALLPAPER_3D
+'#ifdef XRA_WALLPAPER_3D',
+  'vec3 transformed = position;',
+  'float _depth = texture2D( Wallpaper3D_displacementMap, vUv ).x;',
+  'float _depth_factor = max((1.0 - _depth) * (1.0 - Wallpaper3D_pos_offset.z) * Wallpaper3D_scale_z + (Wallpaper3D_camera_distance_offset + Wallpaper3D_pos_offset.z * Wallpaper3D_scale_z), Wallpaper3D_camera_distance_offset) * Wallpaper3D_camera_factor;',
+  'transformed.xy += Wallpaper3D_pos_offset.xy;',
+  'transformed.xy *= _depth_factor;',
+  'transformed.z += _depth;',
+
+  'mvPosition = modelViewMatrix * vec4( transformed, 1.0 );',
+"#else",
 
 			"mvPosition = modelViewMatrix * vec4( position, 1.0 );",
 
+"#endif",
 "#endif",
 
 		"#endif",
@@ -14238,8 +14285,17 @@ THREE.ShaderLib = {
 			THREE.UniformsLib[ "fog" ],
 			THREE.UniformsLib[ "shadowmap" ]
 // AT: uniTexture
-,THREE.UniformsLib[ "uniTexture" ]
-
+,
+THREE.UniformsLib[ "uniTexture" ],
+/*
+// AT: XRA_WALLPAPER_3D
+{
+  'Wallpaper3D_displacementMap': { type:"t", value: null },
+  'Wallpaper3D_camera_factor': { type:"i", value: 0 },
+  'Wallpaper3D_camera_distance_offset': { type:"i", value: 0 },
+  'Wallpaper3D_scale_z': { type: "v3", value: new THREE.Vector3() },
+},
+*/
 		] ),
 
 		vertexShader: [
@@ -14251,6 +14307,10 @@ THREE.ShaderLib = {
 			THREE.ShaderChunk[ "morphtarget_pars_vertex" ],
 			THREE.ShaderChunk[ "skinning_pars_vertex" ],
 			THREE.ShaderChunk[ "shadowmap_pars_vertex" ],
+
+// AT: XRA_WALLPAPER_3D
+THREE.ShaderChunk['XRA_WALLPAPER_3D_pars_vertex'],
+
 // AT: uniTexture
 THREE.ShaderChunk[ "uniTexture_pars_vertex" ],
 
@@ -21179,6 +21239,11 @@ if ((object._model_index != null) && /^(\d+)/.test(g)) {
 
 		}
 
+// AT: XRA_WALLPAPER_3D
+if (material._uniforms_append) {
+  Object.assign(material.uniforms, material._uniforms_append);
+}
+
 		// heuristics to create shader parameters according to lights in the scene
 		// (not to blow over maxLights budget)
 
@@ -21208,6 +21273,9 @@ mirrorTexture: (material.mirrorTextureIndex != null),
 
 // AT: uniTexture
 uniTexture: !!(use_MatrixRain && (material.uniTexture || (( (object._model_index != null) || ( material instanceof THREE.MeshBasicMaterial ) || ( material instanceof THREE.MeshLambertMaterial ) || ( material instanceof THREE.MeshPhongMaterial ) ) && (material.uniTexture={state:(use_MatrixRain)?1:2}) ))),
+
+// AT: XRA_WALLPAPER_3D
+XRA_WALLPAPER_3D: material.XRA_WALLPAPER_3D,
 
 			normalMap: !!material.normalMap,
 			specularMap: !!material.specularMap,
@@ -22794,6 +22862,9 @@ parameters.mirrorTexture ? "#define USE_MIRROR_TEXTURE" : "",
 
 // AT: uniTexture
 parameters.uniTexture ? "#define USE_UNI_TEXTURE" : "",
+
+// AT: XRA_WALLPAPER_3D
+parameters.XRA_WALLPAPER_3D ? "#define XRA_WALLPAPER_3D" : "",
 
 			parameters.normalMap ? "#define USE_NORMALMAP" : "",
 			parameters.specularMap ? "#define USE_SPECULARMAP" : "",
@@ -32860,6 +32931,25 @@ THREE.ShaderChunk[ "AT_depth_render_mode_fragment" ],
 	}
 
 };
+
+// AT: GridHelper
+THREE.GridHelper = (()=>{
+  let m4 = new THREE.Matrix4();
+
+  return function (size, divisions, colorCenterLine, colorGrid) {
+const geometry = new THREE.PlaneGeometry( size, size, divisions, divisions );
+m4.makeRotationX(THREE.Math.degToRad(-90));
+geometry.applyMatrix(m4);
+
+const material = new THREE.MeshBasicMaterial( { color:colorGrid, wireframe:true, transparent:true } );
+
+THREE.Mesh.call( this, geometry, material );
+
+this.useQuaternion = true;
+  };
+})();
+
+THREE.GridHelper.prototype = Object.create( THREE.Mesh.prototype );
 
 /**
  * @author sroucheray / http://sroucheray.org/

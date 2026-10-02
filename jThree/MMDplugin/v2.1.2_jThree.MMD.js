@@ -1,4 +1,4 @@
-// (2024-10-14)
+// (2025-08-24)
 
 /*!
  * jThree.MMD.js JavaScript Library v1.6.1
@@ -2462,14 +2462,9 @@ VMD.prototype.load = function( url_raw, onload ) {
 // NOTE: url_raw is the raw path WITHOUT toFileProtocol (because this will turn the url to blob url in browser, which makes info like file type and such unrecognizable)
 MMD_SA.vmd_by_filename[decodeURIComponent(url_raw.replace(/^.+[\/\\]/, "").replace(/\.([a-z0-9]{1,4})$/i, ""))] = this;
 //console.log(url_raw)
-// AT: BVH
-if (/\.bvh$/i.test(url_raw)) {
-  MMD_SA.BVHLoader().then(()=>{ BVHLoader.VMD = VMD; BVHLoader.load(url_raw).then((bones)=>{ onload(BVHLoader.toVMD(bones)); }); });
-  return
-}
 
-// AT: FBX/GLTF
-if (/\.(fbx|glb)$/i.test(url_raw)) {
+// AT: BVH/FBX/GLTF/VRMA
+if (/\.(bvh|fbx|glb|vrma)$/i.test(url_raw)) {
   new Promise((resolve)=>{
     if (THREE.MMD.getModels().length) {
       resolve();
@@ -2477,10 +2472,15 @@ if (/\.(fbx|glb)$/i.test(url_raw)) {
     else {
       window.addEventListener('SA_MMD_model0_onload', ()=>{ resolve(); }, {once:true});
     }
-  }).then(()=>{
-    MMD_SA.THREEX.utils.load_THREEX_motion( url_raw, THREE.MMD.getModels()[0], VMD ).then(vmd=>{ onload(vmd); });
+  }).then(async ()=>{
+    if (/\.bvh$/i.test(url_raw) && !MMD_SA.THREEX.utils.BVH_loader_mode) {
+      MMD_SA.BVHLoader().then(()=>{ BVHLoader.VMD = VMD; BVHLoader.load(url_raw).then((bones)=>{ onload(BVHLoader.toVMD(bones)); }); });
+    }
+    else {
+      MMD_SA.THREEX.utils.load_THREEX_motion( url_raw, THREE.MMD.getModels()[0], VMD ).then(vmd=>{ onload(vmd); });
+    }
   });
-  return
+  return;
 }
 
 	var that = this;
@@ -3881,7 +3881,7 @@ if (self.MMD_SA) {
 let bones_for_pose_conversion;
 if (mm) {
   let use_default_IK_disabled;
-  if ((mesh._model_index == 0) && System._browser.camera.ML_enabled) {
+  if ((mesh._model_index == 0) && (System._browser.camera.ML_enabled || System._browser.camera.VMC_receiver.mocap_enabled)) {
     const IK_disabled = System._browser.camera.poseNet.IK_disabled_check(target.name);
     if (IK_disabled === null) {
       use_default_IK_disabled = true;
@@ -3955,7 +3955,7 @@ if (mm) {
     const frames = System._browser.camera.poseNet.frames;
     const bones_by_name = mesh.bones_by_name;
 
-    const mocap_IK = (System._browser.camera.poseNet.enabled || System._browser.camera.facemesh.enabled) && (frames.skin[d+'腕ＩＫ'] || (System._browser.camera.poseNet.IK_disabled_check(target.name) === false));
+    const mocap_IK = (System._browser.camera.ML_enabled || System._browser.camera.VMC_receiver.mocap_enabled) && (frames.skin[d+'腕ＩＫ'] || (System._browser.camera.poseNet.IK_disabled_check(target.name) === false));
 // save some headaches and discard any non-arm-IK motion when arm IK mocap is not used, as even when arm-IK is at default, any shoulder rotation will still affect the output
     if (!_vmd.use_armIK && !mocap_IK) {
       continue;
@@ -4013,6 +4013,8 @@ il = Math.max(Math.floor(il * ik_iteration_factor), 1);
 		for (j=0; j<jl; j++) {
 			ikl = ik.links[j];
 			link = bones[ikl.bone];
+//if (link.name.indexOf("腕") != -1) System._browser.camera.DEBUG_show(link.name+':\n' + (new THREE.Vector3().setEulerFromQuaternion(link.quaternion, 'YZX').multiplyScalar(180/Math.PI).toArray().join('\n')) + '\n');
+
 // AT: comment out quaternion.set(0,0,0,1) for independent rotations on linked bones to work
 // limiting rotation from 足首 looks more natural
 if (link.name.indexOf("足首") != -1) link.quaternion.slerp(MMD_SA.TEMP_q.set(0,0,0,1), 0.5);
@@ -4024,7 +4026,7 @@ link_sign[j] = (ikl.limits && model_para && model_para.IK_link_inverted && model
 		loop:
 		for (i=0; i<il; i++) {
 // AT: from CCDIKSolver - save some calculations
-var rotated = false
+let rotated = false
 			for (j=0; j<jl; j++) {
 				ikl = ik.links[j];
 				link = bones[ikl.bone];
@@ -5096,6 +5098,10 @@ if ((v.keys.length==1) && that._is_MMD_SA_animation) {
 		}
 		currKey = v.keys[ v.k ]; //getKey( v, v.k );
 		nextKey = v.keys[ v.k+1 ]; //getKey( v, v.k+1 );
+
+// v0.34.2
+if (!nextKey) { nextKey = currKey; console.log(111); }
+
 // AT: morph skip for childs of group morph
 if (morph_to_skip[nextKey.name]) {
 //DEBUG_show(nextKey.name,0,1)
@@ -5134,6 +5140,10 @@ else
 						v.k++;
 						currKey = v.keys[ v.k ]; //getKey( v, v.k );
 						nextKey = v.keys[ v.k+1 ]; //getKey( v, v.k+1 );
+
+// v0.34.2
+if (!nextKey) { nextKey = currKey; console.log(222); break; }
+
 					}
 				} else {
 					that.time = nextKey.time;
@@ -5143,6 +5153,10 @@ else
 					v.k++;
 					currKey = v.keys[ v.k ]; //getKey( v, v.k );
 					nextKey = v.keys[ v.k+1 ]; //getKey( v, v.k+1 );
+
+// v0.34.2
+if (!nextKey) { nextKey = currKey; console.log(333); break; }
+
 				} while ( nextKey.time < that.time );
 			}
 		}
@@ -5805,9 +5819,11 @@ if (1) {
 const c_base = MMD_SA.TEMP_v3.fromArray(MMD_SA_options.camera_position_base)
 c_pos.sub(c_base);
 // Calculate the target directly from rotation, as the usual camera update routine (.lookAt) can't get the rotation if distance is 0. Also this gives better flexibility for mouse control
-const c_distance = MMD_SA._trackball_camera.position0.distanceTo(MMD_SA._trackball_camera.target0);
-c_target.set(0,0,-1).applyEuler(rot).multiplyScalar((Math.abs(distance)) ? Math.sign(distance) * Math.max(Math.abs(distance), c_distance) : c_distance);
+// v0.34.5
+const c_distance = Math.max(distance, 0.1);
+c_target.set(0,0,-1).applyEuler(rot).multiplyScalar(c_distance);
 c_target.add(c_pos).add(c_base.setY(0));
+//DEBUG_show((currKey.time*(1-ratio)+nextKey.time*ratio) +'\n\n'+c_pos.toArray().join('\n')+'\n\n'+c_target.toArray().join('\n')+'\n\n'+c_base.toArray().join('\n')+'\n\n'+'dis:'+distance+'/'+c_distance)
 
 MMD_SA.Camera_MOD.adjust_camera('MMDCamera_onupdate', c_pos,c_target);
 
@@ -6443,7 +6459,7 @@ Model.prototype.setupMotion_MMD_SA = function( vmd, match, use_dummy ) {
   return obj
 }
 // a trick to export VMD for outside use
-Model.prototype._VMD = function (url, onload) { (new VMD()).load(url, onload) }
+Model.prototype._VMD = function (url, onload) { (new VMD()).load(url, onload) };
 
 // AT: Ignore physics reset, mainly for looping motion
 Model.prototype.resetMotion = function(ignore_physics_reset) {
@@ -6845,7 +6861,7 @@ if (self.MMD_SA) {
 
 System._browser.camera.poseNet.frames.set_upper_body_rotation(this._model_index, 0);
 
-var look_at_screen
+var look_at_screen;
 if (self.MMD_SA && _head_pos && (mesh.bones_by_name[head_name]) && (look_at_screen_ratio != 0) && MMD_SA_options.look_at_screen_by_model(this) && (model_para.look_at_screen != false)) {
   var cam = MMD_SA.camera_position
 
@@ -6871,7 +6887,8 @@ if (self.MMD_SA && _head_pos && (mesh.bones_by_name[head_name]) && (look_at_scre
 
 if (look_at_screen || look_at_mouse) {
 // not using MMD_SA.get_bone_rotation_parent here as it includes the look-at-screen rotation from the previous frame
-  const p_rotation_inversed = (MMD_SA_options.look_at_screen_parent_rotation_by_model(this) || (System._browser.camera.facemesh.enabled && mesh.bones_by_name["全ての親"].quaternion) || MMD_SA.get_bone_rotation_parent(mesh, head_name)).conjugate();
+  const p_rotation_inversed = (MMD_SA_options.look_at_screen_parent_rotation_by_model(this) || ((System._browser.camera.ML_enabled || System._browser.camera.VMC_receiver.mocap_enabled) && MMD_SA.THREEX.q4.copy(mesh.bones_by_name["全ての親"].quaternion).multiply((MMD_SA._trackball_camera.selfie_mode) ? MMD_SA.TEMP_q.copy(MMD_SA._trackball_camera.selfie_rotation_offset) : MMD_SA.TEMP_q.set(0,0,0,1))) || MMD_SA.get_bone_rotation_parent(mesh, head_name)).conjugate();
+
   let r = MMD_SA.face_camera(_head_pos, p_rotation_inversed);
 
   const angle_x_limit = para_SA.look_at_screen_angle_x_limit || [Math.PI*0.5, -Math.PI*0.5];
@@ -7460,6 +7477,9 @@ if (cameraMotion.length) {
 
 if (vmd) {
   cameraMotion = [vmd];
+// v0.34.5
+// Reset MMD camera properly at the beginning of playback
+  System._browser.on_animation_update.add(()=>{ MMD_SA.reset_camera(); }, 6,0);
 }
 else {
   if (cameraMotion.length) {
@@ -7569,6 +7589,8 @@ if (v._model_index > 0) return
 		}
 		//MOD by jThree
 		cameraMotion.forEach( function( m ) {
+// AT: a trick to ensure camera and avatar motion is in sync after camera motion pause during mouse control
+m.time = THREE.MMD.getModels()[0].skin.time;
 			m.update( dt, force );
 		} );
 		if ( lightMotion ) {

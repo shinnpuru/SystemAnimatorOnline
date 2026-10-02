@@ -314,7 +314,7 @@ System.Gadget.Settings._settings_default = {
   "Folder": path_demo_by_url[SA_HTA_folder] || ("$SA_HTA_folder$" + ((SA_HTA_folder_full == SA_HTA_folder) ? "" : encodeURIComponent(SA_HTA_folder_full.substr(SA_HTA_folder.length))))
 };
 
-if (c_js && !save_settings_by_localStorage) {
+if (c_js && !save_settings_by_localStorage && (mac_mode || !webkit_electron_mode)) {
   // direct eval for XUL
   html += SystemEXT.ReadJS(c_js, true)
 //  html += '<script type="text/javascript" language="javascript" src="' + toFileProtocol(SA_HTA_folder) + '/_config_local.js"></scr'+'ipt>\n'

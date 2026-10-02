@@ -20,7 +20,10 @@ export declare class Template {
      * @param {string} template The template string
      */
     constructor(template: string);
-    render(items: Record<string, unknown>): string;
+    render(items?: Record<string, unknown>): string;
+    format(options?: {
+        indent: string | number;
+    }): string;
 }
 export { Environment, Interpreter, tokenize, parse };
 //# sourceMappingURL=index.d.ts.map

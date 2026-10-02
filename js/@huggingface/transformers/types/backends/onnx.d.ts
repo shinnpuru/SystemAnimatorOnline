@@ -6,12 +6,12 @@
 export function deviceToExecutionProviders(device?: import("../utils/devices.js").DeviceType | "auto" | null): ONNXExecutionProviders[];
 /**
  * Create an ONNX inference session.
- * @param {Uint8Array} buffer The ONNX model buffer.
+ * @param {Uint8Array|string} buffer_or_path The ONNX model buffer or path.
  * @param {import('onnxruntime-common').InferenceSession.SessionOptions} session_options ONNX inference session options.
  * @param {Object} session_config ONNX inference session configuration.
  * @returns {Promise<import('onnxruntime-common').InferenceSession & { config: Object}>} The ONNX inference session.
  */
-export function createInferenceSession(buffer: Uint8Array, session_options: import('onnxruntime-common').InferenceSession.SessionOptions, session_config: any): Promise<import('onnxruntime-common').InferenceSession & {
+export function createInferenceSession(buffer_or_path: Uint8Array | string, session_options: import("onnxruntime-common").InferenceSession.SessionOptions, session_config: any): Promise<import("onnxruntime-common").InferenceSession & {
     config: any;
 }>;
 /**
@@ -26,5 +26,5 @@ export function isONNXTensor(x: any): boolean;
  */
 export function isONNXProxy(): boolean;
 export { Tensor } from "onnxruntime-common";
-export type ONNXExecutionProviders = import('onnxruntime-common').InferenceSession.ExecutionProviderConfig;
+export type ONNXExecutionProviders = import("onnxruntime-common").InferenceSession.ExecutionProviderConfig;
 //# sourceMappingURL=onnx.d.ts.map

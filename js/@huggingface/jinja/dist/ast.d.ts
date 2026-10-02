@@ -32,11 +32,18 @@ export declare class For extends Statement {
     type: string;
     constructor(loopvar: Identifier | TupleLiteral, iterable: Expression, body: Statement[], defaultBlock: Statement[]);
 }
+export declare class Break extends Statement {
+    type: string;
+}
+export declare class Continue extends Statement {
+    type: string;
+}
 export declare class SetStatement extends Statement {
     assignee: Expression;
-    value: Expression;
+    value: Expression | null;
+    body: Statement[];
     type: string;
-    constructor(assignee: Expression, value: Expression);
+    constructor(assignee: Expression, value: Expression | null, body: Statement[]);
 }
 export declare class Macro extends Statement {
     name: Identifier;

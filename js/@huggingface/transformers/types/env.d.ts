@@ -2,7 +2,7 @@
  * A read-only object containing information about the APIs available in the current environment.
  */
 export const apis: Readonly<{
-    /** Whether we are running in a browser environment */
+    /** Whether we are running in a browser environment (and not a web worker) */
     IS_BROWSER_ENV: boolean;
     /** Whether we are running in a web worker environment */
     IS_WEBWORKER_ENV: boolean;
@@ -40,7 +40,8 @@ export const apis: Readonly<{
  * @property {string} cacheDir The directory to use for caching files with the file system. By default, it is `./.cache`.
  * @property {boolean} useCustomCache Whether to use a custom cache system (defined by `customCache`), defaults to `false`.
  * @property {Object} customCache The custom cache to use. Defaults to `null`. Note: this must be an object which
- * implements the `match` and `put` functions of the Web Cache API. For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache
+ * implements the `match` and `put` functions of the Web Cache API. For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache.
+ * If you wish, you may also return a `Promise<string>` from the `match` function if you'd like to use a file path instead of `Promise<Response>`.
  */
 /** @type {TransformersEnvironment} */
 export const env: TransformersEnvironment;
@@ -57,7 +58,7 @@ export type TransformersEnvironment = {
      * allowing users to set these variables if they want to.
      */
     backends: {
-        onnx: Partial<import('onnxruntime-common').Env>;
+        onnx: Partial<import("onnxruntime-common").Env>;
     };
     /**
      * Whether to allow loading of remote files, defaults to `true`.
@@ -103,7 +104,8 @@ export type TransformersEnvironment = {
     useCustomCache: boolean;
     /**
      * The custom cache to use. Defaults to `null`. Note: this must be an object which
-     * implements the `match` and `put` functions of the Web Cache API. For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache
+     * implements the `match` and `put` functions of the Web Cache API. For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache.
+     * If you wish, you may also return a `Promise<string>` from the `match` function if you'd like to use a file path instead of `Promise<Response>`.
      */
     customCache: any;
 };

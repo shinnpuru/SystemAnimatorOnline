@@ -7,7 +7,7 @@
  * @module utils/maths
  */
 /**
- * @typedef {Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array} TypedArray
+ * @typedef {Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float16Array | Float32Array | Float64Array} TypedArray
  * @typedef {BigInt64Array | BigUint64Array} BigTypedArray
  * @typedef {TypedArray | BigTypedArray} AnyTypedArray
  */
@@ -30,14 +30,14 @@ export function permute_data<T extends AnyTypedArray>(array: T, dims: number[], 
  * @param {T} arr The array of numbers to compute the softmax of.
  * @returns {T} The softmax array.
  */
-export function softmax<T extends number[] | TypedArray>(arr: T): T;
+export function softmax<T extends TypedArray | number[]>(arr: T): T;
 /**
  * Calculates the logarithm of the softmax function for the input array.
  * @template {TypedArray|number[]} T
  * @param {T} arr The input array to calculate the log_softmax function for.
  * @returns {T} The resulting log_softmax array.
  */
-export function log_softmax<T extends number[] | TypedArray>(arr: T): T;
+export function log_softmax<T extends TypedArray | number[]>(arr: T): T;
 /**
  * Calculates the dot product of two arrays.
  * @param {number[]} arr1 The first array.
@@ -61,18 +61,20 @@ export function cos_sim(arr1: number[], arr2: number[]): number;
 export function magnitude(arr: number[]): number;
 /**
  * Returns the value and index of the minimum element in an array.
- * @param {number[]|TypedArray} arr array of numbers.
- * @returns {[number, number]} the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
+ * @template {number[]|bigint[]|AnyTypedArray} T
+ * @param {T} arr array of numbers.
+ * @returns {T extends bigint[]|BigTypedArray ? [bigint, number] : [number, number]} the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
  * @throws {Error} If array is empty.
  */
-export function min(arr: number[] | TypedArray): [number, number];
+export function min<T extends number[] | bigint[] | AnyTypedArray>(arr: T): T extends bigint[] | BigTypedArray ? [bigint, number] : [number, number];
 /**
  * Returns the value and index of the maximum element in an array.
- * @param {number[]|AnyTypedArray} arr array of numbers.
- * @returns {[number, number]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
+ * @template {number[]|bigint[]|AnyTypedArray} T
+ * @param {T} arr array of numbers.
+ * @returns {T extends bigint[]|BigTypedArray ? [bigint, number] : [number, number]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
  * @throws {Error} If array is empty.
  */
-export function max(arr: number[] | AnyTypedArray): [number, number];
+export function max<T extends number[] | bigint[] | AnyTypedArray>(arr: T): T extends bigint[] | BigTypedArray ? [bigint, number] : [number, number];
 /**
  * Performs median filter on the provided data. Padding is done by mirroring the data.
  * @param {AnyTypedArray} data The input array
@@ -111,7 +113,7 @@ export class FFT {
     realTransform(out: any, input: any): void;
     transform(out: any, input: any): void;
 }
-export type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array;
+export type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float16Array | Float32Array | Float64Array;
 export type BigTypedArray = BigInt64Array | BigUint64Array;
 export type AnyTypedArray = TypedArray | BigTypedArray;
 /**
@@ -129,9 +131,9 @@ declare class P2FFT {
     constructor(size: number);
     size: number;
     _csize: number;
-    table: Float64Array;
+    table: Float64Array<ArrayBuffer>;
     _width: number;
-    _bitrev: Int32Array;
+    _bitrev: Int32Array<ArrayBuffer>;
     /**
      * Create a complex number array with size `2 * size`
      *
@@ -265,12 +267,12 @@ declare class NP2FFT {
     constructor(fft_length: number);
     bufferSize: number;
     _a: number;
-    _chirpBuffer: Float64Array;
-    _buffer1: Float64Array;
-    _buffer2: Float64Array;
-    _outBuffer1: Float64Array;
-    _outBuffer2: Float64Array;
-    _slicedChirpBuffer: Float64Array;
+    _chirpBuffer: Float64Array<ArrayBuffer>;
+    _buffer1: Float64Array<ArrayBuffer>;
+    _buffer2: Float64Array<ArrayBuffer>;
+    _outBuffer1: Float64Array<ArrayBuffer>;
+    _outBuffer2: Float64Array<ArrayBuffer>;
+    _slicedChirpBuffer: Float64Array<ArrayBuffer>;
     _f: P2FFT;
     _transform(output: any, input: any, real: any): void;
     transform(output: any, input: any): void;

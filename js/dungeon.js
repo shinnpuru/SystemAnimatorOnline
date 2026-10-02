@@ -1,4 +1,4 @@
-// (2024-09-15)
+// (2025-08-24)
 
 MMD_SA_options.Dungeon = (function () {
 
@@ -783,9 +783,9 @@ return true;
 
 var item_border = {}
 item_border.inactive = new Image()
-System._browser.load_file(System.Gadget.path + '/images/_dungeon/item_icon.zip#/inventory/RarityBorders/mono_L-50_V11.png', item_border.inactive)
+System._browser.load_file(System.Gadget.path + '/images/cdungeon/item_icon.zip#/inventory/RarityBorders/mono_L-50_V11.png', item_border.inactive)
 item_border.normal = new Image()
-System._browser.load_file(System.Gadget.path + '/images/_dungeon/item_icon.zip#/inventory/RarityBorders/monoV11.png', item_border.normal)
+System._browser.load_file(System.Gadget.path + '/images/cdungeon/item_icon.zip#/inventory/RarityBorders/monoV11.png', item_border.normal)
 
 var UI_muted;
 
@@ -3481,6 +3481,13 @@ System._browser.translation.dictionary = {
 									"ja": "ユーザーインターフェースはオフになりました。 Esc キーを押すと、下部のメニュー表示が切り替わります。",
 									"zh": "使用者介面現已關閉。 按 Esc 鍵切換下方介面的顯示。"
 								},
+								"mobile": {
+									"_translation_": {
+										"_default_": "User interface is now OFF. Touch and hold for 1 second, and press / key to toggle the bottom menu display.",
+										"ja": "ユーザーインターフェースはオフになりました。 1 秒間タッチしたままにして、/ キーを押すと、下部のメニュー表示が切り替わります。",
+										"zh": "使用者介面現已關閉。 點擊螢幕並按住 1 秒鐘，然後按 / 鍵切換下方介面的顯示。"
+									}
+								},
 								"green_screen": {
 									"_translation_": {
 										"_default_": "green screen",
@@ -4408,13 +4415,13 @@ this.inventory.initialize()
 this.item_base = options.item_base || {}
 
 this.item_base._empty_ = Object.assign({
-  icon_path: System.Gadget.path + '/images/_dungeon/item_icon.zip#/empty.gif'
+  icon_path: System.Gadget.path + '/images/cdungeon/item_icon.zip#/empty.gif'
  ,rarity: "inactive"
  ,info_short: "Empty"
 }, this.item_base._empty_||{});
 
 this.item_base._backpack_ = Object.assign({
-  icon_path: System.Gadget.path + '/images/_dungeon/item_icon.zip#/fantasy_icon/backpack_64x64.png'
+  icon_path: System.Gadget.path + '/images/cdungeon/item_icon.zip#/fantasy_icon/backpack_64x64.png'
  ,get info_short() { return System._browser.translation.get('Dungeon.UI.backpack'); }
  ,index_default: MMD_SA_options.Dungeon.inventory.max_base-1
  ,is_base_inventory: true
@@ -4486,7 +4493,7 @@ else {
   const Bag = function (page_index) {
 this._page_index = page_index;
 
-this.icon_path = System.Gadget.path + '/images/_dungeon/item_icon.zip#/misc_icon/bag_64x64.png';
+this.icon_path = System.Gadget.path + '/images/cdungeon/item_icon.zip#/misc_icon/bag_64x64.png';
 this.info_short = "Bag";
 //   ,index_default: MMD_SA_options.Dungeon.inventory.max_base
 this.stock_max = 1;
@@ -4524,7 +4531,7 @@ this.item_base.bag01 = Object.assign(new Bag(1), this.item_base.bag01||{});
 this.item_base.bag02 = Object.assign(new Bag(2), this.item_base.bag02||{});
 
 this.item_base._map_ = Object.assign({
-  icon_path: System.Gadget.path + '/images/_dungeon/item_icon.zip#/fantasy_icon/map_64x64.png'
+  icon_path: System.Gadget.path + '/images/cdungeon/item_icon.zip#/fantasy_icon/map_64x64.png'
  ,info_short: "Map"
  ,index_default: MMD_SA_options.Dungeon.inventory.max_base-2
  ,stock_max: 1
@@ -4537,7 +4544,7 @@ Ldungeon_map.style.visibility = (Ldungeon_map.style.visibility != "hidden") ? "h
 }, this.item_base._map_||{});
 
 this.item_base.menu = Object.assign({
-  icon_path: System.Gadget.path + '/images/_dungeon/item_icon.zip#/fantasy_icon/tome_64x64.png'
+  icon_path: System.Gadget.path + '/images/cdungeon/item_icon.zip#/fantasy_icon/tome_64x64.png'
  ,info_short: "Tome (Menu)"
  ,index_default: MMD_SA_options.Dungeon.inventory.max_base
  ,stock_max: 1
@@ -4646,7 +4653,7 @@ this.events_default["_MENU_"] = [
 
 if (!this.item_base.coin) {
   this.item_base.coin = {
-    icon_path: System.Gadget.path + '/images/_dungeon/item_icon.zip#/fantasy_icon/coin_64x64.png'
+    icon_path: System.Gadget.path + '/images/cdungeon/item_icon.zip#/fantasy_icon/coin_64x64.png'
    ,info_short: "Gold Coin"
    ,stock_max: 999999
    ,sound: [
@@ -4662,7 +4669,7 @@ if (!this.item_base.coin) {
 
 if (!this.item_base.potion_hp_50) {
   this.item_base.potion_hp_50 = {
-    icon_path: System.Gadget.path + '/images/_dungeon/item_icon.zip#/potions/pt1_64x64.png'
+    icon_path: System.Gadget.path + '/images/cdungeon/item_icon.zip#/potions/pt1_64x64.png'
    ,info_short: "HP Potion (M)"
    ,stock_max: 9
    ,sound: [
@@ -4688,7 +4695,7 @@ c.hp_add(c.hp_max/2)
 }
 
 [
-  System.Gadget.path + '/images/_dungeon/item_icon.zip#/inventory/BlankSlot.png'
+  System.Gadget.path + '/images/cdungeon/item_icon.zip#/inventory/BlankSlot.png'
 ].forEach(function (url) {
   MMD_SA_options.Dungeon.blob_url.set(url)
 });
@@ -4754,7 +4761,7 @@ ss.sheet.insertRule([
  ,'z-index: 999;'
  ,'width: 80px;'
  ,'height: ' + (5+5+12*1) + 'px;'
- ,'font-size:10px;'
+ ,'font-size: 10px;'
  ,'content: attr(data-info_short);'
  ,'}'
 ].join('\n'), 0);
@@ -4768,11 +4775,11 @@ ss.sheet.insertRule([
  ,'padding: 5px 5px;'
  ,'position: absolute;'
  ,'top:  -' + (5+5+12*7) + 'px;'
- ,'left: -16px;'
+ ,'left: -' + ((is_mobile)?64:16) + 'px;'
  ,'z-index: 999;'
  ,'width: 280px;'
  ,'height: ' + (5+5+12*7) + 'px;'
- ,'font-size: 10px;'
+ ,'font-size: 9px;'
  ,'content: attr(data-info);'//"' + this.item.info + '";'//
 // https://www.digitalocean.com/community/tutorials/css-line-break-content-property
 // https://developer.mozilla.org/en-US/docs/Web/CSS/white-space
@@ -4948,7 +4955,7 @@ for (let r = 0, r_max = inv.max_row; r < r_max; r++) {
 for (let i = 0, i_max = inv.max_base; i < i_max; i++) {
   let idx = r * i_max + i
 
-  var d_inv = d = document.createElement("div")
+  let d_inv = d = document.createElement("div")
   ds = d.style
   d.id = "Ldungeon_inventory_item" + idx
   d.className = "Dungeon_inventory_item_info_short"
@@ -5039,6 +5046,8 @@ e.dataTransfer.clearData();
 e.dataTransfer.setData("text/plain", _idx);
 e.dataTransfer.setDragImage(inv.list[_idx].item.icon, 30,30);
 e.dataTransfer.dropEffect = "move";
+
+if (SA_topmost_window.is_cordova) e.preventDefault();
   }, true);
   d.addEventListener("dragover", function (e) {
 e.preventDefault();
@@ -5063,6 +5072,9 @@ drop_item(index_source, _idx);
   var img_icon = d = document.createElement("img")
   ds = d.style
   d.id = "Ldungeon_inventory_item" + idx + "_icon"
+
+  ds.pointerEvents = 'none';
+
   ds.position = "absolute"
   ds.posLeft = ds.posTop = 0
   ds.zIndex = 1
@@ -5070,6 +5082,9 @@ drop_item(index_source, _idx);
   var img_border = d = document.createElement("img")
   ds = d.style
   d.id = "Ldungeon_inventory_item" + idx + "_border"
+
+  ds.pointerEvents = 'none';
+
   ds.position = "absolute"
   ds.posLeft = ds.posTop = 0
   ds.zIndex = 2
@@ -6767,6 +6782,9 @@ if (msg_branch_list) {
     const sb = MMD_SA.SpeechBubble.list[sb_index];
 
     if (branch.key == 'any') {
+      if ((_e.keyCode >= 96) && (_e.keyCode <= 96+9)) {
+        _e.key = (_e.keyCode - 96).toString();
+      }
       const result = branch.func(e.detail.e);
       if (result) {
         e.detail.result.return_value = true;
@@ -11562,7 +11580,7 @@ DEBUG_show("3D Resolution:" + (((is_default_res) && (Math.round(MMD_SA._renderer
           message: {
   get content() {
 if (System._browser.overlay_mode)
-  return System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.user_interface.UI_off') + '\n1. ' + ((System._browser.overlay_mode == 2) ? 'UI: OFF + ' + System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.user_interface.UI_off.green_screen') : System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.user_interface') + ': OFF') + '\n2. ' + System._browser.translation.get('Misc.done');
+  return System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.user_interface.UI_off' + ((is_mobile) ? '.mobile' : '')).replace(/\<Esc\>/, (is_mobile)?'/':'Esc') + '\n1. ' + ((System._browser.overlay_mode == 2) ? 'UI: OFF + ' + System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.user_interface.UI_off.green_screen') : System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.user_interface') + ': OFF') + '\n2. ' + System._browser.translation.get('Misc.done');
 return '1. ' + System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.user_interface') + ': ON' + ((MMD_SA_options.user_camera.ML_models.enabled && (System._browser.overlay_mode == 0)) ? '\n2. ' + System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.camera_display') + ': ' + ((MMD_SA_options.user_camera.display.video.hidden) ? 'OFF' : ((MMD_SA_options.user_camera.display.video.hidden == null) ? System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.camera_display.non_webcam') : 'ON')) + '\n3. ' + System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.wireframe_display') + ': ' + ((MMD_SA_options.user_camera.display.wireframe.hidden) ? 'OFF' : 'ON') + '\n4. ' + System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.mocap_debug_display') + ': ' + ((MMD_SA_options.user_camera.ML_models.debug_hidden) ? 'OFF' : 'ON') + '\n5. ' + System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.UI_sound_effects') + ': ' + ((MMD_SA_options.Dungeon.inventory.UI.muted)?'OFF':'ON') + '\n6. ' + System._browser.translation.get('Dungeon.UI.tome.settings.UI_and_overlays.UI_language') + ': ' + System._browser.translation.language_info + '\n7. ' + System._browser.translation.get('Misc.done') : '\n2. ' + System._browser.translation.get('Misc.done'));
   }
  ,para: { no_word_break:true }
@@ -14045,6 +14063,7 @@ if (scale != _scale) {
 const w = 280+5+5;
 SB_tooltip.style.left = ((x > MMD_SA.THREEX.SL.width/2) ? x/window.devicePixelRatio - 40 - w * (1+(scale-1)/2) : x/window.devicePixelRatio + 40 + w * (scale-1)/2) + 'px';
 SB_tooltip.style.top  = (y/window.devicePixelRatio + 40) + 'px';
+SB_tooltip.style.fontSize = ((System._browser.translation.language == 'ja') ? 9 : 10) + 'px';
 SB_tooltip.style.visibility = 'inherit';
       };
     })()

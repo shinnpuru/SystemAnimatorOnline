@@ -20,12 +20,12 @@ export function interpolate(input: Tensor, [out_height, out_width]: number[], mo
  * @param {Tensor} input the input tensor
  * @param {Object} options the options for the interpolation
  * @param {[number, number]|[number, number, number]|[number, number, number, number]} [options.size=null] output spatial size.
- * @param {"bilinear"|"bicubic"} [options.mode='bilinear'] algorithm used for upsampling
+ * @param {"nearest"|"bilinear"|"bicubic"} [options.mode='bilinear'] algorithm used for upsampling
  * @returns {Promise<Tensor>} The interpolated tensor.
  */
 export function interpolate_4d(input: Tensor, { size, mode, }?: {
     size?: [number, number] | [number, number, number] | [number, number, number, number];
-    mode?: "bilinear" | "bicubic";
+    mode?: "nearest" | "bilinear" | "bicubic";
 }): Promise<Tensor>;
 /**
  * Matrix product of two tensors.
@@ -47,10 +47,20 @@ export function rfft(x: Tensor, a: Tensor): Promise<Tensor>;
  * Returns the k largest elements of the given input tensor.
  * Inspired by https://pytorch.org/docs/stable/generated/torch.topk.html
  * @param {Tensor} x the input tensor
- * @param {number} k the k in "top-k"
+ * @param {number} [k] the k in "top-k"
  * @returns {Promise<[Tensor, Tensor]>} the output tuple of (Tensor, LongTensor) of top-k elements and their indices.
  */
-export function topk(x: Tensor, k: number): Promise<[Tensor, Tensor]>;
+export function topk(x: Tensor, k?: number): Promise<[Tensor, Tensor]>;
+/**
+ * Slice a multidimensional float32 tensor.
+ * @param {Tensor} data: Tensor of data to extract slices from
+ * @param {number[]} starts: 1-D array of starting indices of corresponding axis in axes
+ * @param {number[]} ends: 1-D array of ending indices (exclusive) of corresponding axis in axes
+ * @param {number[]} axes: 1-D array of axes that starts and ends apply to
+ * @param {number[]} [steps]: 1-D array of slice step of corresponding axis in axes.
+ * @returns {Promise<Tensor>} Sliced data tensor.
+ */
+export function slice(data: Tensor, starts: number[], ends: number[], axes: number[], steps?: number[]): Promise<Tensor>;
 /**
  * Perform mean pooling of the last hidden state followed by a normalization step.
  * @param {Tensor} last_hidden_state Tensor of shape [batchSize, seqLength, embedDim]
@@ -103,10 +113,10 @@ export function mean(input: Tensor, dim?: number | null, keepdim?: boolean): Ten
 /**
  * Creates a tensor of size size filled with fill_value. The tensor's dtype is inferred from fill_value.
  * @param {number[]} size A sequence of integers defining the shape of the output tensor.
- * @param {number|bigint} fill_value The value to fill the output tensor with.
+ * @param {number|bigint|boolean} fill_value The value to fill the output tensor with.
  * @returns {Tensor} The filled tensor.
  */
-export function full(size: number[], fill_value: number | bigint): Tensor;
+export function full(size: number[], fill_value: number | bigint | boolean): Tensor;
 export function full_like(tensor: any, fill_value: any): Tensor;
 /**
  * Returns a tensor filled with the scalar value 1, with the shape defined by the variable argument size.
@@ -133,12 +143,35 @@ export function zeros(size: number[]): Tensor;
  */
 export function zeros_like(tensor: Tensor): Tensor;
 /**
+ * Returns a tensor filled with random numbers from a uniform distribution on the interval [0, 1)
+ * @param {number[]} size A sequence of integers defining the shape of the output tensor.
+ * @returns {Tensor} The random tensor.
+ */
+export function rand(size: number[]): Tensor;
+/**
  * Quantizes the embeddings tensor to binary or unsigned binary precision.
  * @param {Tensor} tensor The tensor to quantize.
  * @param {'binary'|'ubinary'} precision The precision to use for quantization.
  * @returns {Tensor} The quantized tensor.
  */
-export function quantize_embeddings(tensor: Tensor, precision: 'binary' | 'ubinary'): Tensor;
+export function quantize_embeddings(tensor: Tensor, precision: "binary" | "ubinary"): Tensor;
+export const DataTypeMap: Readonly<{
+    float32: Float32ArrayConstructor;
+    float16: Uint16ArrayConstructor | Float16ArrayConstructor;
+    float64: Float64ArrayConstructor;
+    string: ArrayConstructor;
+    int8: Int8ArrayConstructor;
+    uint8: Uint8ArrayConstructor;
+    int16: Int16ArrayConstructor;
+    uint16: Uint16ArrayConstructor;
+    int32: Int32ArrayConstructor;
+    uint32: Uint32ArrayConstructor;
+    int64: BigInt64ArrayConstructor;
+    uint64: BigUint64ArrayConstructor;
+    bool: Uint8ArrayConstructor;
+    uint4: Uint8ArrayConstructor;
+    int4: Int8ArrayConstructor;
+}>;
 /**
  * @typedef {keyof typeof DataTypeMap} DataType
  * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
@@ -149,11 +182,11 @@ export class Tensor {
      * @param {[DataType, DataArray, number[]]|[ONNXTensor]} args
      */
     constructor(...args: [DataType, DataArray, number[]] | [ONNXTensor]);
-    set dims(arg: number[]);
+    set dims(value: number[]);
     /** @type {number[]} Dimensions of the tensor. */
     get dims(): number[];
     /** @type {DataType} Type of the tensor. */
-    get type(): "string" | "float32" | "uint8" | "int8" | "uint16" | "int16" | "int32" | "int64" | "bool" | "float16" | "float64" | "uint32" | "uint64";
+    get type(): DataType;
     /** @type {DataArray} The data stored in the tensor. */
     get data(): DataArray;
     /** @type {number} The number of elements in the tensor. */
@@ -264,8 +297,41 @@ export class Tensor {
      * @returns {Tensor} Returns `this`.
      */
     sub_(val: number): Tensor;
+    /**
+     * Creates a deep copy of the current Tensor.
+     * @returns {Tensor} A new Tensor with the same type, data, and dimensions as the original.
+     */
     clone(): Tensor;
-    slice(...slices: any[]): Tensor;
+    /**
+     * Performs a slice operation on the Tensor along specified dimensions.
+     *
+     * Consider a Tensor that has a dimension of [4, 7]:
+     * ```
+     * [ 1,  2,  3,  4,  5,  6,  7]
+     * [ 8,  9, 10, 11, 12, 13, 14]
+     * [15, 16, 17, 18, 19, 20, 21]
+     * [22, 23, 24, 25, 26, 27, 28]
+     * ```
+     * We can slice against the two dims of row and column, for instance in this
+     * case we can start at the second element, and return to the second last,
+     * like this:
+     * ```
+     * tensor.slice([1, -1], [1, -1]);
+     * ```
+     * which would return:
+     * ```
+     * [  9, 10, 11, 12, 13 ]
+     * [ 16, 17, 18, 19, 20 ]
+     * ```
+     *
+     * @param {...(number|number[]|null)} slices The slice specifications for each dimension.
+     * - If a number is given, then a single element is selected.
+     * - If an array of two numbers is given, then a range of elements [start, end (exclusive)] is selected.
+     * - If null is given, then the entire dimension is selected.
+     * @returns {Tensor} A new Tensor containing the selected elements.
+     * @throws {Error} If the slice input is invalid.
+     */
+    slice(...slices: (number | number[] | null)[]): Tensor;
     /**
      * Return a permuted version of this Tensor, according to the provided dimensions.
      * @param  {...number} dims Dimensions to permute.
@@ -316,10 +382,10 @@ export class Tensor {
      * NOTE: The returned tensor shares the storage with the input tensor, so changing the contents of one will change the contents of the other.
      * If you would like a copy, use `tensor.clone()` before squeezing.
      *
-     * @param {number} [dim=null] If given, the input will be squeezed only in the specified dimensions.
+     * @param {number|number[]} [dim=null] If given, the input will be squeezed only in the specified dimensions.
      * @returns {Tensor} The squeezed tensor
      */
-    squeeze(dim?: number): Tensor;
+    squeeze(dim?: number | number[]): Tensor;
     /**
      * In-place version of @see {@link Tensor.squeeze}
      */
@@ -359,6 +425,18 @@ export class Tensor {
     neg_(): this;
     neg(): Tensor;
     /**
+     * Computes input > val element-wise.
+     * @param {number} val The value to compare with.
+     * @returns {Tensor} A boolean tensor that is `true` where input is greater than other and `false` elsewhere.
+     */
+    gt(val: number): Tensor;
+    /**
+     * Computes input < val element-wise.
+     * @param {number} val The value to compare with.
+     * @returns {Tensor} A boolean tensor that is `true` where input is less than other and `false` elsewhere.
+     */
+    lt(val: number): Tensor;
+    /**
      * In-place version of @see {@link Tensor.clamp}
      */
     clamp_(min: any, max: any): this;
@@ -379,6 +457,10 @@ export class Tensor {
      */
     round(): Tensor;
     mean(dim?: any, keepdim?: boolean): Tensor;
+    min(dim?: any, keepdim?: boolean): Tensor;
+    max(dim?: any, keepdim?: boolean): Tensor;
+    argmin(dim?: any, keepdim?: boolean): Tensor;
+    argmax(dim?: any, keepdim?: boolean): Tensor;
     /**
      * Performs Tensor dtype conversion.
      * @param {DataType} type The desired data type.
@@ -390,29 +472,13 @@ export class Tensor {
      * If the tensor has more than one dimension, the iterator will yield subarrays.
      * @returns {Iterator} An iterator object for iterating over the tensor data in row-major order.
      */
-    [Symbol.iterator](): Iterator<any, any, undefined>;
+    [Symbol.iterator](): Iterator<any, any, any>;
 }
 /**
  * This creates a nested array of a given type and depth (see examples).
  */
-export type NestArray<T, Depth extends number, Acc extends never[] = []> = Acc['length'] extends Depth ? T : NestArray<T[], Depth, [...Acc, never]>;
+export type NestArray<T, Depth extends number, Acc extends never[] = []> = Acc["length"] extends Depth ? T : NestArray<T[], Depth, [...Acc, never]>;
 export type DataType = keyof typeof DataTypeMap;
-export type DataArray = import('./maths.js').AnyTypedArray | any[];
+export type DataArray = import("./maths.js").AnyTypedArray | any[];
 import { Tensor as ONNXTensor } from '../backends/onnx.js';
-declare const DataTypeMap: Readonly<{
-    float32: Float32ArrayConstructor;
-    float16: Uint16ArrayConstructor;
-    float64: Float64ArrayConstructor;
-    string: ArrayConstructor;
-    int8: Int8ArrayConstructor;
-    uint8: Uint8ArrayConstructor;
-    int16: Int16ArrayConstructor;
-    uint16: Uint16ArrayConstructor;
-    int32: Int32ArrayConstructor;
-    uint32: Uint32ArrayConstructor;
-    int64: BigInt64ArrayConstructor;
-    uint64: BigUint64ArrayConstructor;
-    bool: Uint8ArrayConstructor;
-}>;
-export {};
 //# sourceMappingURL=tensor.d.ts.map

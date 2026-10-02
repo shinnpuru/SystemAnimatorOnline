@@ -109,11 +109,12 @@ content: attr(data-title);
   filter:progid:DXImageTransform.Microsoft.Alpha(opacity=75);
 }
 
-div {
-  -moz-user-select: none;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
+* {
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE/Edge */
+    user-select: none; /* Standard */
+    -webkit-touch-callout: none; /* Disable iOS long-press callout */
 }
 
 #Lbody3D, #Lbody3D_camera, #Lbody3D_main, #Lbody3D_navigation, #Lbody , #Lchild_animation_parent {

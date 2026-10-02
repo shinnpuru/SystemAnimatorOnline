@@ -35,6 +35,7 @@ export declare const TOKEN_TYPES: Readonly<{
     Is: "Is";
     NotIn: "NotIn";
     Else: "Else";
+    EndSet: "EndSet";
     EndIf: "EndIf";
     ElseIf: "ElseIf";
     EndFor: "EndFor";
@@ -43,6 +44,8 @@ export declare const TOKEN_TYPES: Readonly<{
     Not: "UnaryOperator";
     Macro: "Macro";
     EndMacro: "EndMacro";
+    Break: "Break";
+    Continue: "Continue";
 }>;
 export type TokenType = keyof typeof TOKEN_TYPES;
 /**

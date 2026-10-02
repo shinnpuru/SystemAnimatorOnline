@@ -1,6 +1,6 @@
 {
   "name": "@huggingface/transformers",
-  "version": "3.0.0",
+  "version": "3.5.1",
   "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
@@ -9,31 +9,25 @@
     "node": {
       "import": {
         "types": "./types/transformers.d.ts",
-        "default": "./dist/transformers.mjs"
+        "default": "./dist/transformers.node.mjs"
       },
       "require": {
         "types": "./types/transformers.d.ts",
-        "default": "./dist/transformers.cjs"
+        "default": "./dist/transformers.node.cjs"
       }
     },
     "default": {
       "types": "./types/transformers.d.ts",
-      "default": "./dist/transformers.js"
-    }
-  },
-  "imports": {
-    "#onnxruntime-webgpu": {
-      "node": "onnxruntime-web",
-      "default": "onnxruntime-web/webgpu"
+      "default": "./dist/transformers.web.js"
     }
   },
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typegen": "tsc ./src/transformers.js --allowJs --declaration --emitDeclarationOnly --declarationMap --outDir types",
+    "typegen": "tsc --build",
     "dev": "webpack serve --no-client-overlay",
     "build": "webpack && npm run typegen",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
+    "test": "node --experimental-vm-modules --expose-gc node_modules/jest/bin/jest.js --verbose",
     "readme": "python ./docs/scripts/build_readme.py",
     "docs-api": "node ./docs/scripts/generate.js",
     "docs-preview": "doc-builder preview transformers.js ./docs/source/ --not_python_module",
@@ -61,24 +55,25 @@
   },
   "homepage": "https://github.com/huggingface/transformers.js#readme",
   "dependencies": {
-    "@huggingface/jinja": "^0.3.0",
-    "onnxruntime-node": "1.19.2",
-    "onnxruntime-web": "1.20.0-dev.20241016-2b8fc5529b",
-    "sharp": "^0.33.5"
+    "@huggingface/jinja": "^0.4.1",
+    "onnxruntime-node": "1.21.0",
+    "onnxruntime-web": "1.22.0-dev.20250409-89f8206ba4",
+    "sharp": "^0.34.1"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.1",
-    "@webgpu/types": "^0.1.44",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.1",
+    "@webgpu/types": "^0.1.51",
     "catharsis": "github:xenova/catharsis",
-    "jest": "^29.5.0",
-    "jest-environment-node": "^29.5.0",
-    "jsdoc-to-markdown": "^8.0.1",
-    "prettier": "3.3.3",
-    "typescript": "^5.2.2",
-    "wavefile": "^11.0.0",
-    "webpack": "^5.80.0",
-    "webpack-cli": "^5.0.2",
-    "webpack-dev-server": "^4.13.3"
+    "jest": "^30.0.0-alpha.6",
+    "jest-environment-node": "^30.0.0-alpha.6",
+    "jsdoc-to-markdown": "^9.1.1",
+    "prettier": "3.4.2",
+    "typescript": "^5.8.2",
+    "wavefile": "11.0.0",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.1.0"
   },
   "files": [
     "src",

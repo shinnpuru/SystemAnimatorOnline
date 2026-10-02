@@ -39,6 +39,7 @@ export const TOKEN_TYPES = Object.freeze({
 	Is: "Is",
 	NotIn: "NotIn",
 	Else: "Else",
+	EndSet: "EndSet",
 	EndIf: "EndIf",
 	ElseIf: "ElseIf",
 	EndFor: "EndFor",
@@ -47,6 +48,8 @@ export const TOKEN_TYPES = Object.freeze({
 	Not: "UnaryOperator",
 	Macro: "Macro",
 	EndMacro: "EndMacro",
+	Break: "Break",
+	Continue: "Continue",
 });
 
 export type TokenType = keyof typeof TOKEN_TYPES;
@@ -61,6 +64,7 @@ const KEYWORDS = Object.freeze({
 	is: TOKEN_TYPES.Is,
 	if: TOKEN_TYPES.If,
 	else: TOKEN_TYPES.Else,
+	endset: TOKEN_TYPES.EndSet,
 	endif: TOKEN_TYPES.EndIf,
 	elif: TOKEN_TYPES.ElseIf,
 	endfor: TOKEN_TYPES.EndFor,
@@ -70,6 +74,8 @@ const KEYWORDS = Object.freeze({
 	"not in": TOKEN_TYPES.NotIn,
 	macro: TOKEN_TYPES.Macro,
 	endmacro: TOKEN_TYPES.EndMacro,
+	break: TOKEN_TYPES.Break,
+	continue: TOKEN_TYPES.Continue,
 
 	// Literals
 	true: TOKEN_TYPES.BooleanLiteral,

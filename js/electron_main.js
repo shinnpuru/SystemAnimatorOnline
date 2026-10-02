@@ -1,5 +1,5 @@
 // SA Electron - Main EXTENDED
-// (2024-10-10)
+// (2025-05-01)
 
 /*
 eval on Electron v1.6.x has some scope issues/bugs which makes the global variables on this script inaccessible inside functions.
@@ -39,6 +39,9 @@ const icon_name = (windows_mode) ? "icon_SA.ico" : "icon_SA_512x512.png";
 
 // Module to control application life.
 const app = electron.app
+
+//app.commandLine.appendSwitch('no-sandbox');
+//app.disableDomainBlockingFor3DAPIs()
 
 // https://stackoverflow.com/questions/55898000/blocked-a-frame-with-origin-file-from-accessing-a-cross-origin-frame
 app.commandLine.appendSwitch('disable-site-isolation-trials');
@@ -126,10 +129,12 @@ app.on('ready', function() {
     return
   }
 
+/*
   if (windows_mode && !electron.systemPreferences.isAeroGlassEnabled()) {
     global.is_natural_opaque = true
     global.is_transparent = false
   }
+*/
 
   if (linux_mode) {
 //    global.is_natural_opaque = true
@@ -253,7 +258,7 @@ webPreferences: webPreferences_default,
   }
   else {
     mainWindow = new BrowserWindow({icon:__dirname + toLocalPath("\\") + icon_name, width: 1280, height: 720});
-    mainWindow.loadURL('https://vladmandic.github.io/human/demo/index.html'); //'https://code.mediapipe.dev/codepen/holistic'); //toFileProtocol("F:\\Programs Portable\\node-webkit\\_TEMP\\test.html"));//
+    mainWindow.loadURL('chrome://gpu/'); //'https://vladmandic.github.io/human/demo/index.html'); //'https://code.mediapipe.dev/codepen/holistic'); //toFileProtocol("F:\\Programs Portable\\node-webkit\\_TEMP\\test.html"));//
   }
 
 //(SA_path && toFileProtocol(SA_path + '\\' + 'SystemAnimator_webkit.html')) || 'file://' + __dirname + '/index.html');
@@ -825,7 +830,7 @@ global.electron_as_wallpaper = (function () {
 
     app.on('quit', ()=>{
       if (attached)
-        e.refresh();
+        e.refresh?.();
     });
   }
 

@@ -6,7 +6,7 @@
   <img width="640" height="360" title="XR Animator" src="https://github.com/ButzYung/SystemAnimatorOnline/raw/master/images/XR_Animator_thumbnail01.png">
 </p>
 
-XR Animator, inherited from my previous desktop gadget project known as System Animator, is a video/webcam-based AI motion capture application designed for VTubing and the metaverse era. It uses the machine learning (ML) solution from [MediaPipe](https://github.com/google/mediapipe) and [TensorFlow.js](https://github.com/tensorflow/tfjs-models) to detect the 3D poses from a live webcam video, which is then used to drive the 3D avatar (MMD/VRM model) as if you are controlling it with your body. It can be used for VTubing and various XR/3D purposes.
+<ins>***XR Animator***</ins>, inherited from my previous desktop gadget project known as System Animator, is a video/webcam-based AI motion capture application designed for VTubing and the metaverse era. It uses the machine learning (ML) solution from [Google MediaPipe](https://github.com/google/mediapipe) to detect the 3D poses from a live webcam video, which is then used to drive the 3D avatar (VRM/MMD model) as if you are controlling it with your body. It can be used for VTubing and various XR/3D purposes.
 
 It has a variety of motion tracking options. You can choose to track the face, full body, or something in between (any combination of face/body/hands).
 
@@ -24,35 +24,33 @@ The Windows/Linux/macOS app version (powered by [Electron](https://www.electronj
 
 - Support "Perfect Sync"/ARKit-compatible 52 blendshapes for realistic face tracking
 
-- Support using any MMD/VRM model as your 3D avatar
+- Support using any VRM/MMD model as your 3D avatar
 
 - Record mocap motion and export it to VMD/BVH/glTF motion format
 
-- Support loading VMD/FBX/BVH format 3D motions
+- Support loading VMD/FBX/BVH/VRMA format 3D motions
 
-- Export FBX/BVH motions to VMD format
+- Export FBX/BVH/VRMA motions to VMD format
 
 - Support VMC-protocol to animate a 3D model elsewhere in other VMC-enabled applications such as VSeeFace, VNyan and Warudo (Electron mode only)
 
 - Customize the background and 3D scene with 2D image/video, 3D panorama and 3D objects (.x/.glb format)
 
-- Support 2D image as 3D backdrop by assigning an auto AI-generated depth map [(video demo)](https://www.youtube.com/watch?v=rrQo76al8pk), as well as optionally running independently on Windows background (Electron mode) as 3D wallpaper gadget, and web app mode as a ["2D-to-3D image viewer"](https://sao.animetheme.com/SystemAnimator_online.html?cmd_line=demo21)
+- Support 2D image as 3D backdrop by assigning an auto AI-generated depth map [(video demo)](https://www.youtube.com/watch?v=rrQo76al8pk), as well as optionally running independently on Windows background (Electron mode) as 3D wallpaper gadget [(video demo)](https://www.youtube.com/watch?v=0iufChshAkE&t=63s), and web app mode as a [2D-to-3D image viewer](https://sao.animetheme.com/SystemAnimator_online.html?cmd_line=demo21)
 
 - Support webcam object tracking, mapping tracked IRL objects to 3D props [(video demo)](https://www.youtube.com/watch?v=Da4UKNbhmYY)
 
-- Support frameless window with transparent background on video capture apps such as OBS (Electron mode only) (*)
+- Support frameless window with transparent background on video capture apps such as OBS (Electron mode only)
 
 - Support AR (Augmented Reality) on Android Chrome browser
 
-Check out these [YouTube video demos](https://youtube.com/playlist?list=PLLpwhHMvOCSt3i7NQcyJq1fFhoMiSmm5H) and watch XR Animator in action!
-
-(*) - To capture the web app version of XR Animator on OBS without the browser UI, you have to open XR Animator on OBS browser. A few extra command line parameters on OBS are required to allow camera access. [Details](https://twitter.com/yeemachine/status/1461908260638785540)
+**_Check out these [video demos and tutorials](https://youtube.com/playlist?list=PLLpwhHMvOCSt3i7NQcyJq1fFhoMiSmm5H) and watch XR Animator in action!_**
 
 # Performance
 
 XR Animator has relatively low system requirements, making it usable on a wide range of devices, including laptops and even smartphones. On an entry-level PC with GTX1650-class GPU running XR Animator with full body mocap, you can expect 20+ fps on pose/fingers tracking, 40+ fps (capped at 30) on face tracking, and 60fps on 3D rendering.
 
-However, if you are using a laptop but you are experiencing lower-than-expected frame rate, the app may be using the slower integrated GPU. This is a pretty common problem for laptop users. Configure your graphics card settings and make sure that the faster dedicated GPU is used. Check out the article below if you don't know how.
+However, if you are using a laptop but you are experiencing lower-than-expected frame rate, the app may be using the slower integrated GPU. This may happen on laptops with a dual-GPU setup. In such a case, configure your graphics card settings and make sure that the faster dedicated GPU is used. Check out the article below if you don't know how.
 
 [How to Force Windows to Use Dedicated Graphics](https://techcult.com/how-to-force-windows-to-use-dedicated-graphics/)
 
@@ -80,7 +78,7 @@ After the page has been fully loaded, click on the little phone button on the to
 
 The future of XR Animator relies on your support🙇 Some IRL family issues have significantly increased my financial burden. While it was fun to develop the app, financial return was next to minimal. Reality forces me to evaluate the sustainability of this project, or soon I will have to give up...😢
 
-If you like XR Animator, please consider making a donation🙇 Or even better, join my membership with perks such as ***EARLY ACCESS to the latest version XR Animator*** (at least 5 months ahead of the public release on GitHub), insider stories/tips and other benefits🎁 Sponsor us, and help keep this project free and sustainable🙏
+If you like XR Animator, please consider making a donation🙇 Or even better, join my membership with perks such as ***EARLY ACCESS to the latest version XR Animator*** (at least 9 months ahead of the public release on GitHub), insider stories/tips and other benefits🎁 Sponsor us, and help keep this project free and sustainable🙏
 
 - ☕[Ko-fi (Membership)](https://ko-fi.com/butzyung/tiers)
 - 🎁[FANBOX (メンバーシップ)](https://xra.fanbox.cc/)
@@ -89,7 +87,7 @@ If you like XR Animator, please consider making a donation🙇 Or even better, j
 
 XR Animator is currently sponsored by the following people❤️
 
-- **NewruGuru, Kai, Nymph, KuraiNoOni, LouLi Lou, coffee-addict, skeh, Swoonifer, reitoi, Nyaarium, mirai, CoCoNo, Motoko Library**
+- **NewruGuru, Kai, Nymph, KuraiNoOni, LouLi Lou, skeh, Swoonifer, Nyaarium, Kyonko_VT, ObsidianMaker, Catt, ARON, Stimmchen, CoCoNo**
 - Other supporters
 
 # About System Animator
@@ -100,9 +98,7 @@ XR Animator is currently sponsored by the following people❤️
 
 System Animator was originally a desktop gadget project, born more than 10 years ago. The latest version, System Animator Online, is a major version advancement with focus on working as a web app instead of being just a desktop gadget. It fully supports MikuMikuDance (MMD) models and motions, as well as the latest VRM models and FBX/BVH motions, to create an immersive 3D environment.
 
-It's hard to describe what System Animator Online can do in a few words. From a simple animated CPU meter to an interactive 3D music visualizer, a simple AR gadget on your phone to a full-body motion tracking app on your PC, the possibility is endless.
-
-For more information about the desktop gadget version of System Animator, please visit the following page.
+Although the desktop gadget version of System Animator is somewhat obsolete now, you can still visit its website to know more about it.
 https://www.animetheme.com/sidebar/
 
 ### 📖Background Story
@@ -131,11 +127,11 @@ All demos support the use of custom MMD (MikuMikuDance) model. Drop a zip of you
 - License (CC BY-NC-SA 4.0) - http://creativecommons.org/licenses/by-nc-sa/4.0/
   - This license applies if you are adapting XR Animator's source code for your own purpose, such as building another software or service.
   - This license does not cover any third-party assets which may have incompatible licenses of their own.
-  - This license does not apply to content generated from the functionality of XR Animator, such as video content generated from the motion capture feature of System Animator using your own assets. XR Animator claims no right or responsibility over such content.
+  - This license does not apply to content generated from the functionality of XR Animator, such as video content generated from the motion capture feature of XR Animator using your own assets. <ins>***XR Animator claims no right or responsibility over such content.***</ins>
 
 ### Core apps/libraries:
 
-- System Animator © Butz Yung/Anime Theme - http://www.animetheme.com/sidebar/
+- System Animator © Butz Yung/Anime Theme
   - Disclaimer:
     http://www.animetheme.com/system_animator_online/docs/disclaimer.txt
 
@@ -223,7 +219,7 @@ All demos support the use of custom MMD (MikuMikuDance) model. Drop a zip of you
 - YouTube:
   https://www.youtube.com/user/AnimeThemeGadget
 
-- Twitter:
+- X/Twitter:
   https://twitter.com/butz_yung
 
 - Discord:
@@ -234,9 +230,6 @@ All demos support the use of custom MMD (MikuMikuDance) model. Drop a zip of you
 
 - FANBOX:
   https://xra.fanbox.cc/
-
-- Facebook:
-  https://www.facebook.com/AnimeThemeGadgets/
 
 - Homepage (System Animator):
   https://www.animetheme.com/sidebar/

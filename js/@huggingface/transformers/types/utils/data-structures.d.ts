@@ -192,6 +192,64 @@ export class TokenLattice {
     tokenIds(): number[];
 }
 /**
+ * A data structure which uses a trie to split a string into tokens based on a dictionary.
+ * It can also use a regular expression to preprocess the input text before splitting.
+ *
+ * NOTE: To ensure multi-byte characters are handled correctly, we operate at byte-level instead of character-level.
+ */
+export class DictionarySplitter {
+    /**
+     * @param {string[]} dictionary The dictionary of words to use for splitting.
+     */
+    constructor(dictionary: string[]);
+    trie: any;
+    /**
+     * Builds a trie from the given dictionary.
+     * @param {string[]} dictionary The dictionary of words to build the trie from.
+     * @returns {Object} The root node of the trie.
+     * @private
+     */
+    private _buildTrie;
+    /**
+     * Splits the input text into tokens based on the dictionary.
+     * @param {string} text The input text to split.
+     * @returns {string[]} An array of tokens.
+     */
+    split(text: string): string[];
+}
+/**
+* A simple Least Recently Used (LRU) cache implementation in JavaScript.
+* This cache stores key-value pairs and evicts the least recently used item
+* when the capacity is exceeded.
+*/
+export class LRUCache {
+    /**
+     * Creates an LRUCache instance.
+     * @param {number} capacity The maximum number of items the cache can hold.
+     */
+    constructor(capacity: number);
+    capacity: number;
+    cache: Map<any, any>;
+    /**
+     * Retrieves the value associated with the given key and marks the key as recently used.
+     * @param {any} key The key to retrieve.
+     * @returns {any} The value associated with the key, or undefined if the key does not exist.
+     */
+    get(key: any): any;
+    /**
+     * Inserts or updates the key-value pair in the cache.
+     * If the key already exists, it is updated and marked as recently used.
+     * If the cache exceeds its capacity, the least recently used item is evicted.
+     * @param {any} key The key to add or update.
+     * @param {any} value The value to associate with the key.
+     */
+    put(key: any, value: any): void;
+    /**
+     * Clears the cache.
+     */
+    clear(): void;
+}
+/**
  * Represents a node in a character trie.
  */
 declare class CharTrieNode {

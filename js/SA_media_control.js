@@ -1,5 +1,5 @@
 // Media control for Silverlight and HTML5 Canvas
-// (2023-02-18)
+// (2025-05-01)
 
 var EV_SL_MediaEnded, EV_SL_MediaOpened
 
@@ -66,25 +66,31 @@ function SL_MC_MouseEnter(sender, args) {
 
   var options = (SL_MC_video_obj && self.EQP_use_HTML5_video) ? SL_MC_video_obj._EQP_obj.EQP_video_options : null
 
-switch (name) {
-  case "play":
-    SL_tooltip_msg_custom = 'Play / Pause'
-    break
-  case "stop":
-    SL_tooltip_msg_custom = 'Stop' + ((SL_MC_simple_mode || self.MMD_SA || (use_WMP && WMP.in_use) || (!EQP_dragdrop_target || !EQP_dragdrop_target.is_video || !EQP_dragdrop_target.img_obj_i)) ? '' : ' (click again to hide video)')
-    break
-  case "forward":
-    SL_tooltip_msg_custom = (SL_MC_simple_mode || !self.MMD_SA || SL_MC_video_obj.vo.motion_by_song_name_mode) ? 'Seek forward' : 'Speed+'//(options && options.BPM_mode) ? 'BPM sync+' : 'Seek forward'
-    break
-  case "backward":
-    SL_tooltip_msg_custom = (SL_MC_simple_mode || !self.MMD_SA || SL_MC_video_obj.vo.motion_by_song_name_mode) ? 'Seek backward' : 'Speed-'//(options && options.BPM_mode) ? 'BPM sync-' : 'Seek backward'
-    break
-  case "sound":
-    SL_tooltip_msg_custom = (!SL_MC_simple_mode && !self.MMD_SA && ((options && options.BPM_mode && options.beat_reference && !SL_MC_video_obj.paused) || (use_WMP && WMP.in_use && WMP.audio_child_list))) ? 'Click on a beat to sync BPM.' : 'Mute / Unmute'
-    break
-  case "seek":
-    SL_tooltip_msg_custom = "Seek"
-    break
+const result = { tooltip_msg:'' };
+window.dispatchEvent(new CustomEvent('SL_MC_MouseEnter', { detail:{ name:name, result:result } }));
+SL_tooltip_msg_custom = result.tooltip_msg;
+
+if (!SL_tooltip_msg_custom) {
+  switch (name) {
+    case "play":
+      SL_tooltip_msg_custom = 'Play / Pause'
+      break
+    case "stop":
+      SL_tooltip_msg_custom = 'Stop' + ((SL_MC_simple_mode || self.MMD_SA || (use_WMP && WMP.in_use) || (!EQP_dragdrop_target || !EQP_dragdrop_target.is_video || !EQP_dragdrop_target.img_obj_i)) ? '' : ' (click again to hide video)')
+      break
+    case "forward":
+      SL_tooltip_msg_custom = (SL_MC_simple_mode || !self.MMD_SA || SL_MC_video_obj.vo.motion_by_song_name_mode) ? 'Seek forward' : 'Speed+'//(options && options.BPM_mode) ? 'BPM sync+' : 'Seek forward'
+      break
+    case "backward":
+      SL_tooltip_msg_custom = (SL_MC_simple_mode || !self.MMD_SA || SL_MC_video_obj.vo.motion_by_song_name_mode) ? 'Seek backward' : 'Speed-'//(options && options.BPM_mode) ? 'BPM sync-' : 'Seek backward'
+      break
+    case "sound":
+      SL_tooltip_msg_custom = (!SL_MC_simple_mode && !self.MMD_SA && ((options && options.BPM_mode && options.beat_reference && !SL_MC_video_obj.paused) || (use_WMP && WMP.in_use && WMP.audio_child_list))) ? 'Click on a beat to sync BPM.' : 'Mute / Unmute'
+      break
+    case "seek":
+      SL_tooltip_msg_custom = "Seek"
+      break
+  }
 }
 
   if (SL_tooltip_msg_custom) {
@@ -379,6 +385,11 @@ function SL_MC_Forward(ignore_linked_control) {
       return
   }
 */
+
+  const result = { return_value:null };
+  window.dispatchEvent(new CustomEvent("SL_MC_forward_backward", { detail:{ dir:1, result:result } }));
+  if (result.return_value) return;
+
   SL_MC_Seek(1, true)
 }
 
@@ -389,6 +400,11 @@ function SL_MC_Backward(ignore_linked_control) {
       return
   }
 */
+
+  const result = { return_value:null };
+  window.dispatchEvent(new CustomEvent("SL_MC_forward_backward", { detail:{ dir:-1, result:result } }));
+  if (result.return_value) return;
+
   SL_MC_Seek(-1, true)
 }
 

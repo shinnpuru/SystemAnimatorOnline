@@ -9,7 +9,7 @@
  */
 
 /**
- * @typedef {Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array} TypedArray
+ * @typedef {Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float16Array | Float32Array | Float64Array} TypedArray
  * @typedef {BigInt64Array | BigUint64Array} BigTypedArray
  * @typedef {TypedArray | BigTypedArray} AnyTypedArray
  */
@@ -225,8 +225,9 @@ export function magnitude(arr) {
 
 /**
  * Returns the value and index of the minimum element in an array.
- * @param {number[]|TypedArray} arr array of numbers.
- * @returns {[number, number]} the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
+ * @template {number[]|bigint[]|AnyTypedArray} T
+ * @param {T} arr array of numbers.
+ * @returns {T extends bigint[]|BigTypedArray ? [bigint, number] : [number, number]} the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
  * @throws {Error} If array is empty.
  */
 export function min(arr) {
@@ -239,14 +240,15 @@ export function min(arr) {
             indexOfMin = i;
         }
     }
-    return [min, indexOfMin];
+    return /** @type {T extends bigint[]|BigTypedArray ? [bigint, number] : [number, number]} */([min, indexOfMin]);
 }
 
 
 /**
  * Returns the value and index of the maximum element in an array.
- * @param {number[]|AnyTypedArray} arr array of numbers.
- * @returns {[number, number]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
+ * @template {number[]|bigint[]|AnyTypedArray} T
+ * @param {T} arr array of numbers.
+ * @returns {T extends bigint[]|BigTypedArray ? [bigint, number] : [number, number]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
  * @throws {Error} If array is empty.
  */
 export function max(arr) {
@@ -259,7 +261,7 @@ export function max(arr) {
             indexOfMax = i;
         }
     }
-    return [Number(max), indexOfMax];
+    return /** @type {T extends bigint[]|BigTypedArray ? [bigint, number] : [number, number]} */([max, indexOfMax]);
 }
 
 function isPowerOfTwo(number) {
