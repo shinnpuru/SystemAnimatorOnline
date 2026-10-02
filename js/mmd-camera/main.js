@@ -329,8 +329,11 @@ function cameraState() {
   $('camera-toggle').classList.toggle('active', !!stream);
   $('camera-toggle').querySelector('span').textContent = cameraPending ? '等待摄像头权限…' : stream ? '关闭摄像头' : '开启摄像头';
   $('camera-toggle').disabled = cameraPending || !renderer;
+  $('mobile-camera').disabled = cameraPending || !renderer;
+  $('mobile-camera').setAttribute('aria-label', cameraPending ? '等待摄像头权限' : stream ? '关闭摄像头' : '开启摄像头');
+  $('mobile-camera').setAttribute('aria-pressed', String(!!stream));
   $('camera-device').disabled = !stream || cameraPending || $('camera-device').options.length < 2;
-  $('camera-status').textContent = stream ? '摄像头已开启 · 本机画面' : '摄像头未开启';
+  $('camera-status').textContent = stream ? '摄像头已开启' : '摄像头未开启';
   $('camera-dot').style.background = stream ? '#b6d284' : '#7b8776';
   $('webcam').hidden = !stream; $('stage-grid').hidden = !!stream;
   refreshControls();
@@ -458,9 +461,42 @@ $('render-canvas').addEventListener('wheel', event => {
   updateView();
 }, { passive: false });
 
+// Move the existing controls into a native sheet, keeping one set of values and events.
+const mobileLayout = matchMedia('(max-width: 720px), (max-width: 1000px) and (max-height: 500px)');
+const sidebar = document.querySelector('.sidebar');
+const preview = document.querySelector('.preview-column');
+const sheet = $('mobile-sheet');
+const sheetButtons = document.querySelectorAll('[data-mobile-panel]');
+function closeMobileSheet() { if (sheet.open) sheet.close(); }
+for (const button of sheetButtons) button.addEventListener('click', () => {
+  if (!mobileLayout.matches) return;
+  const panel = button.dataset.mobilePanel;
+  $('mobile-sheet-title').textContent = { model: '导入角色', motion: '导入动作', framing: '拍摄设置' }[panel];
+  for (const section of sidebar.querySelectorAll('[data-panel]')) {
+    section.hidden = section.dataset.panel !== panel && !(panel === 'framing' && section.dataset.panel === 'camera');
+  }
+  $('mobile-sheet-body').append(sidebar);
+  button.setAttribute('aria-expanded', 'true');
+  document.body.classList.add('sheet-open');
+  sheet.showModal();
+});
+sheet.addEventListener('close', () => {
+  preview.before(sidebar);
+  for (const section of sidebar.querySelectorAll('[data-panel]')) section.hidden = false;
+  for (const button of sheetButtons) button.setAttribute('aria-expanded', 'false');
+  document.body.classList.remove('sheet-open');
+});
+$('close-mobile-sheet').addEventListener('click', closeMobileSheet);
+sheet.addEventListener('click', event => { if (event.target === sheet && event.clientY < sheet.getBoundingClientRect().top) closeMobileSheet(); });
+mobileLayout.addEventListener('change', () => { if (!mobileLayout.matches) closeMobileSheet(); });
+
 for (const [button, input, kind] of [['import-model', 'model-files', 'model'], ['import-folder', 'model-folder', 'model'], ['import-motion', 'motion-files', 'motion']]) {
   $(button).addEventListener('click', () => $(input).click());
-  $(input).addEventListener('change', () => { const files = Array.from($(input).files); $(input).value = ''; importAssets(files, kind); });
+  $(input).addEventListener('change', () => {
+    const files = Array.from($(input).files); $(input).value = '';
+    if (files.length) closeMobileSheet();
+    importAssets(files, kind);
+  });
 }
 $('picker-cancel').addEventListener('click', () => $('asset-picker').close());
 $('sample').addEventListener('click', () => runImport(async () => {
@@ -486,7 +522,9 @@ $('remove-motion').addEventListener('click', () => {
   motion = null; $('motion-card').hidden = true; $('motion-hint').hidden = false;
   syncTimeline(); refreshControls(); message('动作已移除，角色回到初始姿势。');
 });
-$('camera-toggle').addEventListener('click', () => { if (stream) { stopCamera(); message('摄像头已关闭，角色仍可单独拍照。'); } else startCamera(); });
+function toggleCamera() { if (stream) { stopCamera(); message('摄像头已关闭，角色仍可单独拍照。'); } else startCamera(); }
+$('camera-toggle').addEventListener('click', toggleCamera);
+$('mobile-camera').addEventListener('click', toggleCamera);
 $('camera-device').addEventListener('change', () => startCamera($('camera-device').value));
 navigator.mediaDevices?.addEventListener('devicechange', () => { if (stream) listCameras().catch(() => {}); });
 $('mirror').addEventListener('change', () => $('webcam').classList.toggle('mirrored', $('mirror').checked));
@@ -494,13 +532,16 @@ for (const id of ['model-scale', 'model-x', 'model-y']) $(id).addEventListener('
 $('reset-view').addEventListener('click', resetView);
 $('turn-left').addEventListener('click', () => { modelGroup.rotation.y += Math.PI / 12; });
 $('turn-right').addEventListener('click', () => { modelGroup.rotation.y -= Math.PI / 12; });
-$('aspect').addEventListener('change', () => {
+function changeAspect() {
   const [w, h] = $('aspect').value.split(':').map(Number);
   $('stage').style.aspectRatio = `${w}/${h}`;
   $('stage-shell').classList.toggle('portrait', w < h);
   $('stage-shell').classList.toggle('square', w === h);
   resize();
-});
+}
+$('aspect').addEventListener('change', changeAspect);
+if (mobileLayout.matches) $('aspect').value = window.innerWidth > window.innerHeight ? '16:9' : '9:16';
+changeAspect();
 $('fullscreen').addEventListener('click', async () => {
   try { if (document.fullscreenElement) await document.exitFullscreen(); else await $('stage-shell').requestFullscreen(); }
   catch { message('当前浏览器不支持全屏取景。', true); }

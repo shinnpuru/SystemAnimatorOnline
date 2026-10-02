@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="在摄像头画面中放入 MMD 角色，播放动作并拍照。角色、动作和照片只在本机处理。">
   <meta name="theme-color" content="#f6f7f3">
   <title>MMD Camera · 角色相机</title>
@@ -26,6 +26,7 @@
       <symbol id="i-cross" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
       <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="8" cy="7" r="3"/><circle cx="16" cy="17" r="3"/></symbol>
       <symbol id="i-turn" viewBox="0 0 24 24"><path d="M6 8h10a5 5 0 0 1 0 10h-3M6 8l4-4M6 8l4 4"/></symbol>
     </defs>
   </svg>
@@ -40,7 +41,7 @@
     </section>
     <div class="workspace">
       <aside class="sidebar" aria-label="角色、动作与相机设置">
-        <section class="panel-section">
+        <section class="panel-section" data-panel="model">
           <div class="section-heading"><h2>角色</h2><span class="section-number">01 / MODEL</span></div>
           <button class="dropzone" id="import-model" type="button"><svg><use href="#i-person"/></svg><strong>导入 MMD 角色</strong><small>PMX / PMD / ZIP</small></button>
           <input id="model-files" type="file" multiple hidden aria-label="选择角色文件及贴图">
@@ -48,21 +49,21 @@
           <p class="hint">带贴图的角色建议导入 ZIP，或 <button class="text-button" id="import-folder" type="button">选择整个文件夹</button>。</p>
           <div class="asset-card" id="model-card" hidden><svg><use href="#i-person"/></svg><div class="asset-info"><strong id="model-name"></strong><small id="model-detail"></small></div><button class="icon-button" id="remove-model" aria-label="移除角色" type="button"><svg><use href="#i-cross"/></svg></button></div>
         </section>
-        <section class="panel-section">
+        <section class="panel-section" data-panel="motion">
           <div class="section-heading"><h2>动作</h2><span class="section-number">02 / MOTION</span></div>
           <button class="dropzone" id="import-motion" type="button"><svg><use href="#i-motion"/></svg><strong>导入一段动作</strong><small>VMD / 动作 ZIP</small></button>
           <input id="motion-files" type="file" accept=".vmd,.zip" multiple hidden aria-label="选择 VMD 动作">
           <div class="asset-card" id="motion-card" hidden><svg><use href="#i-motion"/></svg><div class="asset-info"><strong id="motion-name"></strong><small id="motion-detail"></small></div><button class="icon-button" id="remove-motion" aria-label="移除动作" type="button"><svg><use href="#i-cross"/></svg></button></div>
           <p class="hint" id="motion-hint">可以先导入动作，加载角色后再播放。</p>
         </section>
-        <section class="panel-section">
+        <section class="panel-section" data-panel="camera">
           <div class="section-heading"><h2>摄像头</h2><span class="section-number">03 / CAMERA</span></div>
           <button class="camera-button" id="camera-toggle" type="button"><svg><use href="#i-video"/></svg><span>开启摄像头</span></button>
           <div class="field"><label for="camera-device">输入设备</label><select class="select" id="camera-device" disabled><option value="">默认摄像头</option></select></div>
           <div class="row checkbox-row"><label><input id="mirror" type="checkbox" checked>镜像摄像头画面</label></div>
           <p class="hint">开启后，角色会叠加在实景画面上。</p>
         </section>
-        <section class="panel-section">
+        <section class="panel-section" data-panel="framing">
           <div class="section-heading"><h2>构图</h2><button class="reset-button" id="reset-view" type="button" disabled>重置</button></div>
           <div class="field"><label class="range-label" for="model-scale">角色大小<output id="scale-value">100%</output></label><input class="range" id="model-scale" type="range" min="30" max="200" value="100" disabled></div>
           <div class="field"><label class="range-label" for="model-x">水平位置<output id="x-value">0</output></label><input class="range" id="model-x" type="range" min="-100" max="100" value="0" disabled></div>
@@ -71,12 +72,12 @@
         </section>
       </aside>
       <section class="preview-column" aria-label="相机取景与动作播放">
-        <div class="view-header"><span class="view-title">LIVE VIEW / 实时取景</span><div class="view-tools"><select id="aspect" aria-label="照片画幅"><option value="16:9">16 : 9</option><option value="9:16">9 : 16</option><option value="1:1">1 : 1</option></select><span class="separator"></span><button class="icon-button" id="fullscreen" type="button" aria-label="全屏取景"><svg><use href="#i-expand"/></svg></button></div></div>
+        <div class="view-header"><span class="view-title"><span class="desktop-label">LIVE VIEW / </span>实时取景</span><div class="view-tools"><button class="icon-button mobile-only" id="mobile-camera" type="button" aria-label="开启摄像头" aria-pressed="false"><svg><use href="#i-video"/></svg></button><select id="aspect" aria-label="照片画幅"><option value="16:9">16 : 9</option><option value="9:16">9 : 16</option><option value="1:1">1 : 1</option></select><span class="separator"></span><button class="icon-button" id="fullscreen" type="button" aria-label="全屏取景"><svg><use href="#i-expand"/></svg></button></div></div>
         <div class="stage-shell" id="stage-shell">
           <div class="stage" id="stage">
             <video id="webcam" muted playsinline autoplay hidden class="mirrored"></video>
             <div class="stage-grid" id="stage-grid"></div>
-            <canvas id="render-canvas" aria-label="MMD 角色预览，拖动旋转，按住 Shift 拖动平移，滚轮缩放" tabindex="0"></canvas>
+            <canvas id="render-canvas" aria-label="MMD 角色预览，单指拖动旋转，双指缩放与平移；鼠标滚轮缩放，Shift 拖动平移" tabindex="0"></canvas>
             <div class="stage-status"><span class="dot" id="camera-dot"></span><span id="camera-status">摄像头未开启</span></div>
             <div class="empty-stage" id="empty-stage"><div class="empty-symbol"><svg><use href="#i-camera"/></svg></div><strong>镜头已就绪，等你的角色登场</strong><p>导入角色，或者先试用示例<br>开启摄像头，就能与角色一起入镜</p></div>
             <div class="stage-frame"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></div>
@@ -92,12 +93,21 @@
           <select class="select" id="speed" aria-label="播放速度" disabled><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
           <label class="checkbox-row" style="margin:0;white-space:nowrap"><input id="loop" type="checkbox" checked aria-label="循环播放"> 循环</label>
         </div>
-        <div class="below-preview"><div class="controls-note">拖动旋转镜头 · 滚轮缩放 · Shift + 拖动平移<br>手机可双指缩放与平移</div><button class="capture-button" id="capture" type="button" disabled><svg><use href="#i-camera"/></svg>拍一张<span>PNG</span></button></div>
+        <div class="below-preview"><div class="controls-note"><span class="desktop-label">拖动旋转镜头 · 滚轮缩放 · Shift + 拖动平移<br></span><span class="touch-hint">单指旋转 · 双指缩放与平移</span></div><button class="capture-button" id="capture" type="button" disabled><svg><use href="#i-camera"/></svg>拍一张<span>PNG</span></button></div>
         <p id="status" class="status-message" role="status" aria-live="polite">准备好了。角色和动作文件只在浏览器内处理。</p>
       </section>
     </div>
     <footer class="footnote"><div><svg><use href="#i-lock"/></svg>摄像头、角色与照片都留在本机</div><span>Built on System Animator · MMD Camera</span></footer>
   </main>
+  <nav class="mobile-dock mobile-only" aria-label="拍摄工具">
+    <button type="button" data-mobile-panel="model" aria-controls="mobile-sheet" aria-expanded="false"><svg><use href="#i-person"/></svg><span>角色</span></button>
+    <button type="button" data-mobile-panel="motion" aria-controls="mobile-sheet" aria-expanded="false"><svg><use href="#i-motion"/></svg><span>动作</span></button>
+    <button type="button" data-mobile-panel="framing" aria-controls="mobile-sheet" aria-expanded="false"><svg><use href="#i-settings"/></svg><span>设置</span></button>
+  </nav>
+  <dialog class="mobile-sheet" id="mobile-sheet" aria-labelledby="mobile-sheet-title">
+    <div class="sheet-header"><h2 id="mobile-sheet-title">拍摄设置</h2><button class="icon-button" id="close-mobile-sheet" type="button" aria-label="关闭设置面板" autofocus><svg><use href="#i-cross"/></svg></button></div>
+    <div id="mobile-sheet-body" class="sheet-body"></div>
+  </dialog>
   <dialog class="modal" id="asset-picker" aria-labelledby="picker-title"><h2 id="picker-title">选择要使用的文件</h2><div class="modal-list" id="picker-list"></div><div class="modal-actions"><button id="picker-cancel" type="button">取消</button></div></dialog>
   <dialog class="modal" id="photo-dialog" aria-labelledby="photo-title"><h2 id="photo-title">这张同框，留住了。</h2><img id="photo-preview" alt="摄像头实景与 MMD 角色合成照片"><div class="modal-actions"><button id="close-photo" type="button">继续拍摄</button><a id="download-photo" class="primary" download="mmd-camera.png">保存照片</a></div></dialog>
   <noscript><p>请启用 JavaScript 后使用角色相机。</p></noscript>
