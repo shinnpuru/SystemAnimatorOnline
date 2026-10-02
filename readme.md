@@ -12,6 +12,12 @@ node XRA_node_server.js
 
 打开 http://localhost:3000/ 或 http://localhost:3000/XR_Animator.html 。无需安装依赖。手机或远程访问需自行使用 HTTPS 服务；摄像头不能在普通 HTTP 远程地址中使用。
 
+## GitHub Pages 发布
+
+网站地址：https://shinnpuru.github.io/SystemAnimatorOnline/ 。Pages 从 `master` 分支根目录发布，保留 `.nojekyll`，无需额外构建。推送到 `master` 后，GitHub 自动构建并部署。
+
+原自定义域名 `dance.shinnpuru.online` 的 DNS 无法解析且没有可用的 HTTPS 证书，当前使用 GitHub 默认 HTTPS 地址。恢复原域名时，先将 DNS CNAME 指向 `shinnpuru.github.io`，再添加根目录 `CNAME` 文件和 Pages 自定义域名设置，待证书签发后开启 HTTPS。
+
 ## 使用
 
 1. 导入 PMX/PMD 模型。推荐把模型与贴图按原目录结构放入 ZIP，也可选择整个角色文件夹，或同时选择模型和贴图文件。包含多个模型的 ZIP 会让你选择角色。
