@@ -13,6 +13,9 @@ It does not change the runtime used by the preserved XR Animator app.
 - Three.js is MIT licensed. The bundled mmd-parser is authored by Takahiro and
   distributed by Three.js. Existing author and license headers are retained.
 - Runtime assets are served locally; no CDN or package installation is needed.
+- `effects/OutlineEffect.js` is ported from this repository's existing Three.js
+  effect, with the import redirected to r163 and expired cache materials disposed.
+  It preserves upstream's mesh visibility restriction and XR-compatible pass.
 
 The camera edition currently enables skeletal animation, IK, grants and morph
 animation. Rigid-body physics is disabled. `MMDPhysics.js` is retained as a static

@@ -295,6 +295,17 @@ svg {
   color:#53604e;
   font-size:11px
 }
+.catalog-field { margin:0 0 14px }
+.library-select { font-size:12px; height:42px; background:#f5f8ef }
+.light-presets,.photo-tools { display:flex; gap:6px; margin-top:12px }
+.light-presets button,.photo-tools button { border:1px solid var(--line); border-radius:7px; padding:9px 5px; flex:1; font-size:10px; min-height:40px }
+.photo-tools { flex-direction:column }
+.photo-tools button { font-size:12px; background:#f5f8ef }
+.photo-tools #match-light { background:var(--accent); color:var(--green) }
+.background-card { display:flex; align-items:center; gap:6px; margin-top:6px; color:var(--muted); font-size:11px }
+.background-card span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 }
+.light-details { border-top:1px solid var(--line); padding-top:12px; margin-top:18px }
+.light-details summary { cursor:pointer; color:var(--green); font-size:11px; min-height:28px }
 .row {
   display:flex;
   align-items:center;
@@ -337,7 +348,9 @@ input[type=checkbox] {
   color:var(--green)
 }
 .preview-column {
-  min-width:0
+  min-width:0;
+  position:sticky;
+  top:16px
 }
 .view-header {
   display:flex;
@@ -460,13 +473,14 @@ body.ar-active > .topbar,body.ar-active > .page,body.ar-active > .mobile-dock { 
 .stage-shell.square .stage {
   width:min(100%,640px)
 }
-.stage video,.stage canvas {
+.stage video,.stage canvas,.stage > img {
   position:absolute;
   inset:0;
   width:100%;
   height:100%;
   object-fit:cover
 }
+.stage video { z-index:1 }
 .stage video.mirrored {
   transform:scaleX(-1)
 }
@@ -900,6 +914,7 @@ body.sheet-open { overflow:hidden }
   .sample { position:absolute; top:calc(7px + env(safe-area-inset-top)); right:max(16px,env(safe-area-inset-right)); min-height:44px; padding:8px 10px; font-size:12px; white-space:nowrap }
   .sample svg { display:none }
   .workspace { display:block }
+  .preview-column { position:static }
   .sidebar { display:none }
   .mobile-sheet .sidebar { display:block; border:0; border-radius:0; width:100% }
   .mobile-sheet .panel-section { padding:20px; border-right:0 }
@@ -910,6 +925,8 @@ body.sheet-open { overflow:hidden }
   .dropzone strong { font-size:15px }
   .dropzone small,.hint,.asset-info small { font-size:12px }
   .hint { line-height:1.9 }
+  .light-presets button,.photo-tools button { min-height:44px; font-size:12px }
+  .light-details summary { font-size:14px; min-height:44px; display:flex; align-items:center; gap:8px }
   .asset-info strong { font-size:14px }
   .text-button,.reset-button { min-height:44px; font-size:13px }
   .field label,.range-label,.checkbox-row { font-size:14px }

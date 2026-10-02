@@ -4,19 +4,17 @@ import { MMDAnimationHelper } from './vendor/animation/MMDAnimationHelper.js';
 import { Parser } from './vendor/libs/mmdparser.module.js';
 import { collectAssets, createAssetURLs, droppedFiles, isModel, isMotion, coverRect } from './assets.js';
 import { SpatialAR } from './spatial-ar.js';
+import { models, motions, bundledAsset } from './catalog.js';
+import { AnimeRenderer } from './anime-renderer.js';
+import { defaultLighting, estimateLighting } from './light-estimation.js';
+import { buildInBindPose } from './animation.js';
 
 const $ = id => document.getElementById(id);
 const parser = new Parser();
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(35, 16 / 9, 0.1, 2000);
 const modelGroup = new THREE.Group();
-scene.add(modelGroup, new THREE.HemisphereLight(0xffffff, 0x788474, 1.2));
-const keyLight = new THREE.DirectionalLight(0xfff5e9, 1.4);
-keyLight.position.set(-15, 30, 30);
-scene.add(keyLight);
-const fillLight = new THREE.DirectionalLight(0xdfeaff, 0.5);
-fillLight.position.set(20, 15, -20);
-scene.add(fillLight);
+scene.add(modelGroup);
 
 let renderer, mesh, helper, modelResources, motion, action;
 let duration = 0, position = 0, playing = false, busy = false;
@@ -24,6 +22,10 @@ let stream = null, cameraRequest = 0, cameraPending = false, photoURL = null;
 let lastFrame = performance.now(), lastUI = 0, dragDepth = 0;
 let modelHeight = 20, modelMinY = 0, modelCenter = new THREE.Vector3(0, 10, 0);
 let spatialAR, arResumeCamera = null, arCameraRestore = null, leavingPage = false;
+let studio, backgroundPhoto = null, backgroundURL = null, backgroundRequest = 0;
+let modelSelection = '', motionSelection = '', lastLightSample = 0;
+const lightCanvas = document.createElement('canvas'); lightCanvas.width = lightCanvas.height = 96;
+const lightContext = lightCanvas.getContext('2d', { willReadFrequently: true });
 let orbit = { theta: 0, phi: Math.PI / 2, distance: 50, x: 0, y: 0 };
 const backgroundColor = '#232b27';
 const WHITE_PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jL1sAAAAASUVORK5CYII=';
@@ -35,14 +37,17 @@ function message(text, error = false) {
 
 function refreshControls() {
   const arLocked = !!spatialAR?.locked;
-  for (const id of ['import-model', 'import-folder', 'import-motion', 'sample', 'remove-model', 'remove-motion']) $(id).disabled = busy || !renderer || arLocked;
+  for (const id of ['import-model', 'import-folder', 'import-motion', 'model-library', 'motion-library', 'remove-model', 'remove-motion']) $(id).disabled = busy || !renderer || arLocked;
+  for (const id of ['import-background', 'remove-background', 'match-light']) $(id).disabled = !renderer || arLocked;
+  $('match-light').disabled ||= !stream && !backgroundPhoto;
+  $('follow-light').disabled = !stream || arLocked;
   for (const id of ['model-scale', 'model-x', 'model-y', 'reset-view', 'turn-left', 'turn-right']) $(id).disabled = !mesh || busy || arLocked;
   for (const id of ['play', 'restart', 'timeline', 'speed']) $(id).disabled = !action || busy;
-  $('capture').disabled = (!mesh && !stream) || !renderer || busy || cameraPending || arLocked;
+  $('capture').disabled = (!mesh && !stream && !backgroundPhoto) || !renderer || busy || cameraPending || arLocked;
   for (const id of ['camera-toggle', 'mobile-camera']) $(id).disabled = cameraPending || !renderer || arLocked;
   $('ar-toggle').disabled = !renderer || busy || cameraPending || arLocked || spatialAR?.support === 'checking';
   $('ar-play').disabled = !action || busy;
-  $('empty-stage').hidden = !!mesh || !!stream;
+  $('empty-stage').hidden = !!mesh || !!stream || !!backgroundPhoto;
   $('play').setAttribute('aria-label', playing ? '暂停动作' : '播放动作');
   $('play-icon').setAttribute('href', playing ? '#i-pause' : '#i-play');
   $('ar-play').setAttribute('aria-label', playing ? '暂停动作' : '播放动作');
@@ -105,6 +110,7 @@ function detachAnimation() {
 
 function releaseModel() {
   detachAnimation();
+  studio?.detach();
   if (mesh) { modelGroup.remove(mesh); disposeMesh(mesh); }
   modelResources?.dispose(); modelResources = null; mesh = null;
 }
@@ -133,7 +139,7 @@ async function restorePackedTextures(assets) {
   }
 }
 
-async function loadModel(assets, name) {
+async function loadModel(assets, name, library = {}) {
   message('正在加载角色与贴图…');
   await restorePackedTextures(assets);
   const baseURL = new URL(`./__mmd_camera__/${crypto.randomUUID()}/`, location.href).href;
@@ -168,6 +174,7 @@ async function loadModel(assets, name) {
     }
     releaseModel();
     mesh = nextMesh; modelResources = resources;
+    studio.attach(mesh);
     mesh.frustumCulled = false;
     modelGroup.rotation.y = 0;
     modelGroup.add(mesh);
@@ -177,7 +184,9 @@ async function loadModel(assets, name) {
     modelMinY = bounds.min.y;
     modelCenter = bounds.getCenter(new THREE.Vector3());
     resetView();
-    $('model-name').textContent = name.split('/').pop();
+    $('model-name').textContent = library.label || name.split('/').pop();
+    modelSelection = library.id || 'local';
+    syncLibrary('model', modelSelection, name);
     $('model-detail').textContent = `${/\.pmx$/i.test(name) ? 'PMX' : 'PMD'} · ${mesh.skeleton.bones.length} 个骨骼`;
     $('model-card').hidden = false;
     if (nextClip) { nextClip.duration = Math.max(nextClip.duration, 1 / 30); applyAnimation(nextClip); }
@@ -193,7 +202,7 @@ async function loadModel(assets, name) {
 }
 
 function buildClip(data, object) {
-  const clip = new MMDLoader().animationBuilder.build(data, object);
+  const clip = buildInBindPose(new MMDLoader().animationBuilder, data, object);
   if (!clip.tracks.length) throw userError('这段动作没有与当前角色匹配的骨骼或表情，请尝试其他动作或角色。');
   clip.duration = Math.max(clip.duration, 1 / 30);
   return clip;
@@ -222,12 +231,14 @@ function configureLoop() {
   action.clampWhenFinished = true;
 }
 
-async function loadMotion(assets, name) {
+async function loadMotion(assets, name, library = {}) {
   const data = parser.parseVmd(await assets.get(name).arrayBuffer(), true);
   if (!data.motions.length && !data.morphs.length) throw userError('这个 VMD 只包含相机或灯光数据，请选择角色的骨骼或表情动作。');
   const clip = mesh ? buildClip(data, mesh) : null;
   motion = { data, name };
-  $('motion-name').textContent = name.split('/').pop();
+  $('motion-name').textContent = library.label || name.split('/').pop();
+  motionSelection = library.id || 'local';
+  syncLibrary('motion', motionSelection, name);
   $('motion-card').hidden = false;
   $('motion-hint').hidden = true;
   if (clip) { applyAnimation(clip); message('动作已导入并开始播放。暂停后也可以拍摄当前姿势。'); }
@@ -325,12 +336,16 @@ function tick(now, frame) {
   lastFrame = now;
   if ((document.hidden && !spatialAR?.active) || !renderer) return;
   if (frame) spatialAR?.update(frame);
+  if (now - lastLightSample > 1500 && $('follow-light').checked && stream && !spatialAR?.locked && !$('photo-dialog').open) {
+    lastLightSample = now; matchLighting(true);
+  }
   if (playing && helper && action && !busy && !$('photo-dialog').open) {
     const step = delta * Number($('speed').value);
     helper.update(step);
     position = action.time;
     if (!$('loop').checked && position >= duration) { position = duration; playing = false; refreshControls(); }
   }
+  studio.update(spatialAR?.active ? renderer.xr.getCamera(camera) : camera, modelCenter, modelHeight);
   renderer.render(scene, camera);
   if (now - lastUI > 100) { syncTimeline(); lastUI = now; }
 }
@@ -345,7 +360,10 @@ function cameraState() {
   $('camera-device').disabled = !stream || cameraPending || $('camera-device').options.length < 2;
   $('camera-status').textContent = stream ? '摄像头已开启' : '摄像头未开启';
   $('camera-dot').style.background = stream ? '#b6d284' : '#7b8776';
-  $('webcam').hidden = !stream; $('stage-grid').hidden = !!stream;
+  $('webcam').hidden = !stream;
+  $('photo-background').hidden = !!stream || !backgroundPhoto;
+  $('stage-grid').hidden = !!stream || !!backgroundPhoto;
+  if (!stream && backgroundPhoto) $('camera-status').textContent = '照片背景';
   refreshControls();
 }
 
@@ -416,7 +434,7 @@ async function capture() {
       if ($('mirror').checked) { context.translate(width, 0); context.scale(-1, 1); }
       context.drawImage(video, ...coverRect(video.videoWidth, video.videoHeight, width, height), 0, 0, width, height);
       context.restore();
-    }
+    } else if (backgroundPhoto) context.drawImage(backgroundPhoto, ...coverRect(backgroundPhoto.width, backgroundPhoto.height, width, height), 0, 0, width, height);
     // Render at export resolution; crop and model framing match the live viewport.
     const previewSize = renderer.getSize(new THREE.Vector2()), pixelRatio = renderer.getPixelRatio();
     try {
@@ -433,6 +451,91 @@ async function capture() {
     message(`照片已生成 · ${width} × ${height}，点击「保存照片」即可下载。`);
   } catch (error) { message(error.userMessage || '照片生成失败，请重试。', true); }
 }
+
+const lightKeys = Object.keys(defaultLighting);
+const lightPresets = {
+  studio: { ...defaultLighting },
+  sunset: { ...defaultLighting, temperature: 3200, azimuth: -65, elevation: 15, ambient: 30, contrast: 75, rim: 60 },
+  cool: { ...defaultLighting, temperature: 9000, azimuth: 45, elevation: 45, intensity: 75, ambient: 30, rim: 50 }
+};
+function updateLighting() {
+  const settings = Object.fromEntries(lightKeys.map(key => [key, Number($(`light-${key}`).value)]));
+  for (const [key, value] of Object.entries(settings)) {
+    $(`light-${key}-value`).textContent = `${value}${key === 'temperature' ? ' K' : ['azimuth', 'elevation'].includes(key) ? '°' : '%'}`;
+  }
+  studio?.configure(settings);
+}
+function setLighting(settings, smoothing = 1) {
+  for (const key of lightKeys) if (Number.isFinite(settings[key])) {
+    const control = $(`light-${key}`), previous = Number(control.value);
+    // Take the short route across the -180/180 boundary when following video.
+    let difference = settings[key] - previous;
+    if (key === 'azimuth') difference = (difference + 540) % 360 - 180;
+    let value = previous + difference * smoothing;
+    if (key === 'azimuth') value = (value + 540) % 360 - 180;
+    control.value = String(Math.round(value / Number(control.step || 1)) * Number(control.step || 1));
+  }
+  updateLighting();
+}
+function matchLighting(follow = false) {
+  const video = $('webcam'), source = stream && video.readyState >= 2 && video.videoWidth ? video : backgroundPhoto;
+  if (!source) { if (!follow) $('lighting-status').textContent = '先导入背景照片，或开启摄像头后再匹配光照。'; return; }
+  try {
+    const width = source.videoWidth || source.width, height = source.videoHeight || source.height;
+    lightContext.clearRect(0, 0, 96, 96);
+    lightContext.save();
+    if (source === video && $('mirror').checked) { lightContext.translate(96, 0); lightContext.scale(-1, 1); }
+    // Analyze the visible crop, not parts of the photo outside the viewfinder.
+    lightContext.drawImage(source, ...coverRect(width, height, camera.aspect * 96, 96), 0, 0, 96, 96);
+    lightContext.restore();
+    const estimate = estimateLighting(lightContext.getImageData(0, 0, 96, 96));
+    setLighting(estimate, follow ? .25 : 1);
+    const confidence = { dark: '画面较暗，来光方向不确定', diffuse: '光线较均匀，来光方向不确定', directional: '已估计大致来光方向' }[estimate.confidence];
+    $('lighting-status').textContent = `${follow ? '跟随摄像头' : source === video ? '匹配摄像头画面' : '匹配背景照片'} · ${confidence}。可手动修正。`;
+  } catch { if (!follow) $('lighting-status').textContent = '画面暂时无法读取，请重试或手动调节光照。'; }
+}
+for (const key of lightKeys) $(`light-${key}`).addEventListener('input', () => {
+  $('follow-light').checked = false;
+  updateLighting(); $('lighting-status').textContent = '手动光照。可随时再次匹配画面。';
+});
+for (const button of document.querySelectorAll('[data-light-preset]')) button.addEventListener('click', () => {
+  $('follow-light').checked = false; setLighting(lightPresets[button.dataset.lightPreset]);
+  $('lighting-status').textContent = `已应用「${button.textContent}」，可以继续微调。`;
+});
+$('reset-lighting').addEventListener('click', () => {
+  $('follow-light').checked = false; setLighting(defaultLighting);
+  $('lighting-status').textContent = '光照已恢复默认设置。';
+});
+$('render-style').addEventListener('change', () => studio?.setMode($('render-style').value));
+$('match-light').addEventListener('click', () => { $('follow-light').checked = false; matchLighting(); });
+$('follow-light').addEventListener('change', () => {
+  if ($('follow-light').checked) matchLighting(true);
+  else $('lighting-status').textContent = '已停止跟随，保留当前光照。';
+});
+$('import-background').addEventListener('click', () => $('background-file').click());
+$('background-file').addEventListener('change', async () => {
+  const file = $('background-file').files[0]; $('background-file').value = '';
+  if (!file || spatialAR?.locked || leavingPage) return;
+  const request = ++backgroundRequest;
+  try {
+    const bitmap = await createImageBitmap(file);
+    if (request !== backgroundRequest || leavingPage || spatialAR?.locked) { bitmap.close(); return; }
+    const url = URL.createObjectURL(file);
+    backgroundPhoto?.close(); if (backgroundURL) URL.revokeObjectURL(backgroundURL);
+    backgroundPhoto = bitmap; backgroundURL = url; $('photo-background').src = url;
+    $('background-name').textContent = file.name; $('background-card').hidden = false;
+    // Choosing a photo deliberately switches the background out of live video.
+    if (stream || cameraPending) stopCamera();
+    $('follow-light').checked = false; cameraState(); matchLighting();
+    message('背景照片已加载，并已估计光照。调整角色后就可以拍照了。');
+  } catch { message('无法读取这张照片，请尝试 JPG、PNG 或 WebP 格式。', true); }
+});
+$('remove-background').addEventListener('click', () => {
+  backgroundRequest++; backgroundPhoto?.close(); backgroundPhoto = null;
+  if (backgroundURL) URL.revokeObjectURL(backgroundURL); backgroundURL = null;
+  $('photo-background').removeAttribute('src'); $('background-card').hidden = true;
+  cameraState(); message('背景照片已移除，保留当前光照。');
+});
 
 // Pointer controls support mouse and one/two-finger touch without taking over page scrolling.
 const pointers = new Map();
@@ -479,17 +582,22 @@ const preview = document.querySelector('.preview-column');
 const sheet = $('mobile-sheet');
 const sheetButtons = document.querySelectorAll('[data-mobile-panel]');
 function closeMobileSheet() { if (sheet.open) sheet.close(); }
-for (const button of sheetButtons) button.addEventListener('click', () => {
+function openMobilePanel(panel, button) {
   if (!mobileLayout.matches) return;
-  const panel = button.dataset.mobilePanel;
-  $('mobile-sheet-title').textContent = { model: '导入角色', motion: '导入动作', framing: '拍摄设置' }[panel];
+  if (sheet.open) sheet.close();
+  $('mobile-sheet-title').textContent = { model: '选择角色', motion: '选择动作', framing: '拍摄设置', lighting: '渲染与光照' }[panel];
   for (const section of sidebar.querySelectorAll('[data-panel]')) {
-    section.hidden = section.dataset.panel !== panel && !(panel === 'framing' && section.dataset.panel === 'camera');
+    section.hidden = section.dataset.panel !== panel && !(panel === 'framing' && ['camera', 'lighting'].includes(section.dataset.panel));
   }
   $('mobile-sheet-body').append(sidebar);
-  button.setAttribute('aria-expanded', 'true');
+  button?.setAttribute('aria-expanded', 'true');
   document.body.classList.add('sheet-open');
   sheet.showModal();
+}
+for (const button of sheetButtons) button.addEventListener('click', () => openMobilePanel(button.dataset.mobilePanel, button));
+$('lighting-shortcut').addEventListener('click', () => {
+  if (mobileLayout.matches) openMobilePanel('lighting');
+  else $('lighting-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 sheet.addEventListener('close', () => {
   preview.before(sidebar);
@@ -510,20 +618,41 @@ for (const [button, input, kind] of [['import-model', 'model-files', 'model'], [
   });
 }
 $('picker-cancel').addEventListener('click', () => $('asset-picker').close());
-$('sample').addEventListener('click', () => runImport(async () => {
-  const response = await fetch('jThree/model/alicia.min.zip');
-  if (!response.ok) throw new Error('Example model unavailable');
-  const file = new File([await response.blob()], 'alicia.zip');
-  const assets = await collectAssets([file], window.JSZip);
-  await loadModel(assets, 'Alicia_solid_v02.pmx');
-  const motionResponse = await fetch('MMD.js/motion/motion_basic_pack01.zip');
-  if (!motionResponse.ok) throw new Error('Example motion unavailable');
-  const motions = await collectAssets([new File([await motionResponse.blob()], 'motion.zip')], window.JSZip);
-  await loadMotion(motions, 'standmix2_modified.vmd');
-  message('示例角色与动作已加载。开启摄像头，试试第一张同框照片。');
-}));
+function syncLibrary(kind, selection, name) {
+  const select = $(`${kind}-library`);
+  select.querySelector('option[value="local"]')?.remove();
+  if (selection === 'local') select.add(new Option(`已导入 · ${name.split('/').pop()}`, 'local'));
+  select.value = selection;
+}
+for (const model of models) $('model-library').add(new Option(model.label, model.id));
+for (const group of new Set(motions.map(item => item.group))) {
+  const optgroup = document.createElement('optgroup'); optgroup.label = group;
+  for (const motion of motions.filter(item => item.group === group)) optgroup.append(new Option(motion.label, motion.id));
+  $('motion-library').append(optgroup);
+}
+async function loadBuiltinModel(model) {
+  message(`正在加载 ${model.label}…`);
+  const assets = await collectAssets([new File([await bundledAsset(model.path)], 'model.zip')], window.JSZip);
+  await loadModel(assets, model.entry, model);
+}
+async function loadBuiltinMotion(item) {
+  message(`正在加载「${item.label}」…`);
+  const name = item.path.split('/').pop();
+  await loadMotion(new Map([[name, await bundledAsset(item.path)]]), name, item);
+}
+$('model-library').addEventListener('change', async () => {
+  const model = models.find(item => item.id === $('model-library').value);
+  if (model) await runImport(() => loadBuiltinModel(model));
+  $('model-library').value = modelSelection;
+});
+$('motion-library').addEventListener('change', async () => {
+  const motion = motions.find(item => item.id === $('motion-library').value);
+  if (motion) await runImport(() => loadBuiltinMotion(motion));
+  $('motion-library').value = motionSelection;
+});
 $('remove-model').addEventListener('click', () => {
   releaseModel(); $('model-card').hidden = true;
+  modelSelection = ''; syncLibrary('model', '', '');
   if (motion) $('motion-detail').textContent = '已就绪，等待导入角色';
   syncTimeline(); refreshControls(); message('角色已移除，可以导入新的角色。');
 });
@@ -531,6 +660,7 @@ $('remove-motion').addEventListener('click', () => {
   detachAnimation(); mesh?.pose();
   if (mesh?.morphTargetInfluences) mesh.morphTargetInfluences.fill(0);
   motion = null; $('motion-card').hidden = true; $('motion-hint').hidden = false;
+  motionSelection = ''; syncLibrary('motion', '', '');
   syncTimeline(); refreshControls(); message('动作已移除，角色回到初始姿势。');
 });
 function toggleCamera() { if (stream) { stopCamera(); message('摄像头已关闭，角色仍可单独拍照。'); } else startCamera(); }
@@ -570,7 +700,7 @@ function arState(state) {
 $('ar-toggle').addEventListener('click', async () => {
   if (!spatialAR || spatialAR.locked || busy || cameraPending) return;
   if (spatialAR.support !== 'available') { message($('ar-support').textContent, true); return; }
-  if (!mesh) { message('先导入一个角色或试用示例，再进入 AR。'); return; }
+  if (!mesh) { message('先选择一个内置角色或导入角色，再进入 AR。'); return; }
   closeMobileSheet();
   arResumeCamera = stream ? stream.getVideoTracks()[0]?.getSettings().deviceId || '' : null;
   if (stream) stopCamera();
@@ -641,10 +771,15 @@ document.addEventListener('drop', async event => {
     await importAssets(files, 'drop');
   } catch { message('无法读取拖入的文件，请使用导入按钮或文件夹选择。', true); }
 });
-window.addEventListener('pagehide', () => {
+window.addEventListener('pagehide', event => {
   leavingPage = true; arResumeCamera = null;
   spatialAR?.end().catch(() => {});
   stopCamera(); if (photoURL) URL.revokeObjectURL(photoURL);
+  backgroundRequest++;
+  if (!event.persisted) {
+    backgroundPhoto?.close(); backgroundPhoto = null;
+    if (backgroundURL) URL.revokeObjectURL(backgroundURL); backgroundURL = null;
+  }
 });
 window.addEventListener('pageshow', () => { leavingPage = false; });
 
@@ -654,10 +789,16 @@ try {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setClearColor(0x000000, 0);
+  studio = new AnimeRenderer(renderer, scene);
+  studio.configure(defaultLighting);
   spatialAR = new SpatialAR({ renderer, scene, camera, model: modelGroup, overlay: $('ar-overlay'), onState: arState });
   spatialAR.detectSupport();
   new ResizeObserver(resize).observe($('stage'));
   resize(); refreshControls(); cameraState(); renderer.setAnimationLoop(tick);
+  if (location.protocol !== 'file:') runImport(async () => {
+    await loadBuiltinModel(models[0]); await loadBuiltinMotion(motions[0]);
+    message('角色与动作已就绪。在选择列表中换一种动作，或开启摄像头开始拍摄。');
+  });
   if (location.protocol === 'file:') message('请通过本地服务打开页面：在项目文件夹运行 node XRA_node_server.js。', true);
 } catch (error) {
   console.error('MMD Camera renderer:', error);
