@@ -473,6 +473,13 @@ body.ar-active > .topbar,body.ar-active > .page,body.ar-active > .mobile-dock { 
 .stage-shell.square .stage {
   width:min(100%,640px)
 }
+@media(min-width:721px) and (min-height:501px) {
+  .stage-shell.portrait .stage { width:min(100%,400px,calc((100svh - 220px) * 9 / 16)) }
+  .stage-shell.square .stage { width:min(100%,640px,calc(100svh - 220px)) }
+}
+@media(max-height:650px) {
+  .preview-column { position:static }
+}
 .stage video,.stage canvas,.stage > img {
   position:absolute;
   inset:0;
