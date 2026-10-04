@@ -14,9 +14,9 @@ node XRA_node_server.js
 
 ## GitHub Pages 发布
 
-网站地址：https://shinnpuru.github.io/SystemAnimatorOnline/ 。Pages 从 `master` 分支根目录发布，保留 `.nojekyll`，无需额外构建。推送到 `master` 后，GitHub 自动构建并部署。
+网站地址：[https://dance.shinnpuru.site/](https://dance.shinnpuru.site/) 。Pages 从 `master` 分支根目录发布，保留 `.nojekyll`，无需额外构建。推送到 `master` 后，GitHub 自动构建并部署。
 
-原自定义域名 `dance.shinnpuru.online` 的 DNS 无法解析且没有可用的 HTTPS 证书，当前使用 GitHub 默认 HTTPS 地址。恢复原域名时，先将 DNS CNAME 指向 `shinnpuru.github.io`，再添加根目录 `CNAME` 文件和 Pages 自定义域名设置，待证书签发后开启 HTTPS。
+根目录 `CNAME` 文件和 Pages 自定义域名设置均为 `dance.shinnpuru.site`，当前 HTTPS 地址可正常访问。后续变更域名时，同步更新 DNS、`CNAME` 文件和 Pages 设置。
 
 ## 使用
 
