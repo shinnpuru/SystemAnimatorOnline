@@ -591,8 +591,6 @@ const sheet = $('mobile-sheet');
 const sheetButtons = document.querySelectorAll('[data-mobile-panel]');
 function closeMobileSheet() { if (sheet.open) sheet.close(); }
 function openMobilePanel(panel, button) {
-  if (!mobileLayout.matches) return;
-  if (sheet.open) sheet.close();
   $('mobile-sheet-title').textContent = { model: '选择角色', motion: '选择动作', framing: '拍摄设置', lighting: '渲染与光照' }[panel];
   for (const section of sidebar.querySelectorAll('[data-panel]')) {
     section.hidden = section.dataset.panel !== panel && !(panel === 'framing' && ['camera', 'lighting'].includes(section.dataset.panel));
@@ -600,12 +598,11 @@ function openMobilePanel(panel, button) {
   $('mobile-sheet-body').append(sidebar);
   button?.setAttribute('aria-expanded', 'true');
   document.body.classList.add('sheet-open');
-  sheet.showModal();
+  if (!sheet.open) sheet.showModal();
 }
 for (const button of sheetButtons) button.addEventListener('click', () => openMobilePanel(button.dataset.mobilePanel, button));
 $('lighting-shortcut').addEventListener('click', () => {
-  if (mobileLayout.matches) openMobilePanel('lighting');
-  else $('lighting-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  openMobilePanel('lighting');
 });
 sheet.addEventListener('close', () => {
   preview.before(sidebar);
@@ -615,7 +612,6 @@ sheet.addEventListener('close', () => {
 });
 $('close-mobile-sheet').addEventListener('click', closeMobileSheet);
 sheet.addEventListener('click', event => { if (event.target === sheet && event.clientY < sheet.getBoundingClientRect().top) closeMobileSheet(); });
-mobileLayout.addEventListener('change', () => { if (!mobileLayout.matches) closeMobileSheet(); });
 
 for (const [button, input, kind] of [['import-model', 'model-files', 'model'], ['import-folder', 'model-folder', 'model'], ['import-motion', 'motion-files', 'motion']]) {
   $(button).addEventListener('click', () => $(input).click());
@@ -748,6 +744,7 @@ $('turn-right').addEventListener('click', () => { modelGroup.rotation.y -= Math.
 function changeAspect() {
   const [w, h] = $('aspect').value.split(':').map(Number);
   $('stage').style.aspectRatio = `${w}/${h}`;
+  document.documentElement.style.setProperty('--frame-aspect', w / h);
   $('stage-shell').classList.toggle('portrait', w < h);
   $('stage-shell').classList.toggle('square', w === h);
   resize();
@@ -756,7 +753,7 @@ $('aspect').addEventListener('change', changeAspect);
 if (mobileLayout.matches) $('aspect').value = window.innerWidth > window.innerHeight ? '16:9' : '9:16';
 changeAspect();
 $('fullscreen').addEventListener('click', async () => {
-  try { if (document.fullscreenElement) await document.exitFullscreen(); else await $('stage-shell').requestFullscreen(); }
+  try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); }
   catch { message('当前浏览器不支持全屏取景。', true); }
 });
 $('play').addEventListener('click', () => {
