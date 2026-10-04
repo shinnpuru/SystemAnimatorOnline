@@ -259,7 +259,7 @@ input[type=checkbox]{
 .camera-flip{ min-width:44px; min-height:44px; background:#e9ede3; border-radius:12px; color:var(--green) }
 .ar-support{ padding:10px; background:#f5f7f0; border-radius:8px }
 body.ar-active{ background:transparent }
-body.ar-active > .topbar,body.ar-active > .page,body.ar-active > .mobile-dock{ display:none }
+body.ar-active > .page{ display:none }
 .ar-overlay{
   position:fixed;
   inset:0;
@@ -479,28 +479,30 @@ body.ar-active > .topbar,body.ar-active > .page,body.ar-active > .mobile-dock{ d
   .ar-size-label { margin-top:8px }
   .ar-tools button { padding:8px; font-size:12px; min-height:44px }
 }
-/* The viewfinder uses the entire viewport above the bottom dock. */
+/* Tools float over the viewfinder without reserving screen space. */
 :root {
-  --dock-height:calc(74px + env(safe-area-inset-bottom));
-  --frame-height:calc(100dvh - var(--dock-height) - env(safe-area-inset-top));
+  --frame-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   --frame-aspect:1.777777778
 }
 body { margin:0; background:#171e1a; color:var(--ink); font-size:13px; overflow:hidden }
-.page { position:fixed; inset:0 0 var(--dock-height); padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left) }
+.page { position:fixed; inset:0; padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) }
 .workspace,.preview-column,.stage-shell { width:100%; height:100%; min-width:0; min-height:0 }
 .stage-shell { position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden }
 .stage { position:relative; width:min(100%,calc(var(--frame-height) * var(--frame-aspect))); aspect-ratio:16/9; background:#232b27; overflow:hidden; touch-action:none }
 .sidebar { display:none }
-.view-header { position:absolute; top:12px; right:12px; z-index:5 }
-.view-tools { display:flex; align-items:center; gap:6px }
-.view-tools .icon-button,.view-tools .ar-entry,.lighting-overlay {
-  display:grid; place-items:center; width:44px; height:44px; min-width:44px; min-height:44px;
+.view-header { position:absolute; top:12px; right:12px; max-width:calc(100% - 24px); z-index:5 }
+.view-tools { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:6px; max-width:514px }
+.view-tools .icon-button,.view-tools .ar-entry {
+  display:grid; place-items:center; width:44px; height:44px; min-width:44px; min-height:44px; flex:0 0 44px;
   border:1px solid #ffffff29; border-radius:14px; background:#1d2922cc; color:#f2f6ed; backdrop-filter:blur(12px)
 }
-.view-tools select { width:64px; height:44px; border:1px solid #ffffff29; border-radius:14px; padding:0 4px; background:#1d2922cc; color:#f2f6ed; font-size:12px; backdrop-filter:blur(12px) }
+.view-tools select { flex:0 0 64px; width:64px; height:44px; border:1px solid #ffffff29; border-radius:14px; padding:0 4px; background:#1d2922cc; color:#f2f6ed; font-size:12px; backdrop-filter:blur(12px) }
 .view-tools select option { color:var(--ink); background:var(--paper) }
 #mobile-camera[aria-pressed=true] { background:var(--accent); color:#354229 }
-.lighting-overlay { position:absolute; top:68px; right:12px; z-index:5 }
+.view-tools .tool-tile { display:flex; flex-direction:column; justify-content:center; gap:2px; padding:4px 0 }
+.view-tools .tool-tile svg { width:18px; height:18px }
+.view-tools .tool-tile span { font-size:10px; line-height:12px }
+.view-tools .capture-button { background:var(--accent); color:#354229; border-color:#dbe8b1; font-weight:600 }
 .stage-status { position:absolute; top:68px; left:12px; max-width:calc(100% - 80px); z-index:4; display:flex; align-items:center; gap:7px; color:#e1e9da; background:#1d2922b3; border:1px solid #ffffff18; backdrop-filter:blur(12px); padding:8px 10px; border-radius:10px; font-size:11px; pointer-events:none }
 .transport {
   position:absolute; z-index:5; bottom:44px; left:50%; transform:translateX(-50%); width:calc(100% - 24px); max-width:560px;
@@ -519,10 +521,6 @@ body { margin:0; background:#171e1a; color:var(--ink); font-size:13px; overflow:
 .transport .range { height:28px }
 .status-message { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); width:max-content; max-width:calc(100% - 24px); min-height:0; margin:0; padding:5px 9px; border-radius:9px; color:#dce7d3; background:#1d292299; z-index:4; font-size:10px; line-height:1.5; text-align:center; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; pointer-events:none }
 .status-message.error { color:#ffcec5; background:#4c2827e6 }
-.mobile-dock { position:fixed; bottom:0; left:0; right:0; height:var(--dock-height); z-index:10; display:flex; align-items:center; padding:10px max(12px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); gap:6px; border-top:1px solid #ffffff14; background:#1d2722; color:#edf4e6 }
-.mobile-dock > button { flex:1; min-width:0; min-height:54px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:12px; border-radius:14px }
-.mobile-dock > button:hover { background:#ffffff0a }
-.mobile-dock > .capture-button { flex:1.35; flex-direction:row; gap:7px; background:var(--accent); color:#354229; font-weight:550; font-size:14px; white-space:nowrap }
 .mobile-sheet { width:min(100%,560px); max-width:100%; max-height:80dvh; margin:auto auto 0; border:0; border-radius:24px 24px 0 0; padding:0; background:var(--paper); color:var(--ink); box-shadow:0 -12px 60px #0003; overflow:hidden }
 .mobile-sheet::backdrop { background:#17201a80; backdrop-filter:blur(3px) }
 .sheet-header { display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--line) }
@@ -556,20 +554,13 @@ body { margin:0; background:#171e1a; color:var(--ink); font-size:13px; overflow:
 .range::-moz-range-thumb { width:16px; height:16px; background:#7f9565; border:3px solid #fff; border-radius:50%; box-shadow:0 1px 4px #0002 }
 .modal-actions button,.modal-actions a,.modal-list button { min-height:44px }
 @media(min-width:721px) and (min-height:501px) {
-  .mobile-dock { justify-content:center }
-  .mobile-dock > button { flex:0 1 140px }
-  .mobile-dock > .capture-button { flex:0 1 180px }
   .mobile-sheet { margin:auto; border-radius:24px }
   .transport { grid-template-columns:44px 44px minmax(80px,1fr) auto 64px 60px; gap:8px; padding:8px 12px }
   .transport > :is(.timecode,.timeline,.select,.checkbox-row,.icon-button,.play-button) { grid-row:auto; grid-column:auto }
   .transport .timeline { grid-row:auto; grid-column:auto; height:44px }
 }
 @media(max-height:500px) {
-  :root { --dock-height:calc(56px + env(safe-area-inset-bottom)) }
-  .mobile-dock { padding-top:6px; padding-bottom:calc(6px + env(safe-area-inset-bottom)) }
-  .mobile-dock > button { min-height:44px }
   .view-header { top:8px; right:8px }
-  .lighting-overlay { top:60px; right:8px }
   .stage-status { top:60px; left:8px; font-size:10px }
   .transport { max-width:500px; bottom:36px; grid-template-columns:44px 44px minmax(70px,1fr) auto 64px 60px; gap:6px; padding:4px 8px }
   .transport > :is(.timecode,.timeline,.select,.checkbox-row,.icon-button,.play-button) { grid-row:auto; grid-column:auto }
@@ -586,4 +577,11 @@ body { margin:0; background:#171e1a; color:var(--ink); font-size:13px; overflow:
   .transport .timecode { grid-row:1; grid-column:4 / 6 }
   .transport .select { grid-column:4 }
   .transport .checkbox-row { grid-column:5 }
+}
+
+@media(max-width:537px) {
+  .stage-status { top:118px }
+}
+@media(max-width:537px) and (max-height:500px) {
+  .stage-status { top:110px }
 }
